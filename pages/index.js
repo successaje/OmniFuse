@@ -1,6 +1,7 @@
 import LandingHeader from '../components/LandingHeader';
 import { useTheme } from '../components/ThemeProvider';
 import { useEffect, useState, useRef } from 'react';
+import AssetNetworkSelector from '../components/AssetNetworkSelector';
 
 const logos = [
   { src: '/logos/ethereum-eth-logo.png', alt: 'Ethereum', color: '#627EEA' },
@@ -73,6 +74,7 @@ const features = [
 export default function LandingPage() {
   const { theme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [assetNetworkSelection, setAssetNetworkSelection] = useState({});
   useEffect(() => { setMounted(true); }, []);
   // Helper to get theme-aware logo
   function themedLogo(base, ext = 'png') {
@@ -127,6 +129,20 @@ export default function LandingPage() {
     <>
       <LandingHeader brandClass="font-orbitron" />
       <section className="relative flex flex-col items-center justify-center min-h-screen w-full bg-[var(--background)] text-[var(--text-main)] transition-colors duration-500 pt-16">
+        {/* Asset & Network Selector for onboarding/preview */}
+        <div className="mb-8">
+          <AssetNetworkSelector value={assetNetworkSelection} onChange={setAssetNetworkSelection} />
+        </div>
+        {assetNetworkSelection.asset && assetNetworkSelection.network && (
+          <div className="flex items-center gap-4 mb-6">
+            {assetNetworkSelection.asset.icon && (
+              <img src={assetNetworkSelection.asset.icon} alt={assetNetworkSelection.asset.symbol} className="w-8 h-8 rounded-full" />
+            )}
+            <span className="font-medium">{assetNetworkSelection.asset.symbol}</span>
+            <span className="text-[var(--text-muted)]">on</span>
+            <span className="font-medium">{assetNetworkSelection.network}</span>
+          </div>
+        )}
         {/* Enhanced starfield background */}
         <div className="absolute inset-0 w-full h-full z-0 pointer-events-none">
           <svg width="100%" height="100%" className="absolute inset-0 w-full h-full">

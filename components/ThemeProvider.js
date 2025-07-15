@@ -23,8 +23,16 @@ export function ThemeProvider({ children }) {
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       initial = prefersDark ? 'dark' : 'light';
     }
-    setTheme(initial);
-    applyTheme(initial);
+    // Only set theme if different
+    setTheme((prev) => {
+      if (prev !== initial) {
+        applyTheme(initial);
+        return initial;
+      } else {
+        applyTheme(prev);
+        return prev;
+      }
+    });
   }, []);
 
   useEffect(() => {

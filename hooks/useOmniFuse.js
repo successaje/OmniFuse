@@ -1,12 +1,25 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useAccount, useSigner } from 'wagmi';
+import { useAccount, useWalletClient } from 'wagmi';
 import { ethers } from 'ethers';
 import contractService from '../services/contractService';
 import { CROSS_CHAIN_CONFIG } from '../config/contracts';
 
 export function useOmniFuse() {
   const { address, isConnected } = useAccount();
-  const { data: signer } = useSigner();
+  const { data: walletClient } = useWalletClient();
+
+  // Helper to get ethers.js Signer from walletClient (for legacy contractService)
+  const getSigner = () => {
+    if (!walletClient) return null;
+    // If contractService is updated to support viem, pass walletClient directly instead
+    // For now, try to get a signer from the walletClient
+    // NOTE: This only works if walletClient has an ethers.js provider (e.g. MetaMask)
+    if (walletClient?.ethereum) {
+      const provider = new ethers.BrowserProvider(walletClient.ethereum);
+      return provider.getSigner();
+    }
+    return null;
+  };
   
   const [userPosition, setUserPosition] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -36,6 +49,7 @@ export function useOmniFuse() {
 
   // Supply assets from EVM to ZetaChain
   const supplyToZeta = useCallback(async (network, assetAddress, amount) => {
+    const signer = await getSigner();
     if (!signer || !isConnected) {
       throw new Error('Wallet not connected');
     }
@@ -69,10 +83,11 @@ export function useOmniFuse() {
     } finally {
       setIsLoading(false);
     }
-  }, [signer, isConnected, loadUserPosition]);
+  }, [isConnected, loadUserPosition]);
 
   // Borrow assets from ZetaChain to EVM
   const borrowCrossChain = useCallback(async (assetAddress, amount, destChainId) => {
+    const signer = await getSigner();
     if (!signer || !isConnected) {
       throw new Error('Wallet not connected');
     }
@@ -106,10 +121,11 @@ export function useOmniFuse() {
     } finally {
       setIsLoading(false);
     }
-  }, [signer, isConnected, loadUserPosition]);
+  }, [isConnected, loadUserPosition]);
 
   // Repay assets from EVM to ZetaChain
   const repayToZeta = useCallback(async (network, assetAddress, amount) => {
+    const signer = await getSigner();
     if (!signer || !isConnected) {
       throw new Error('Wallet not connected');
     }
@@ -143,10 +159,11 @@ export function useOmniFuse() {
     } finally {
       setIsLoading(false);
     }
-  }, [signer, isConnected, loadUserPosition]);
+  }, [isConnected, loadUserPosition]);
 
   // Withdraw assets from ZetaChain to EVM
   const withdrawCrossChain = useCallback(async (assetAddress, amount, destChainId) => {
+    const signer = await getSigner();
     if (!signer || !isConnected) {
       throw new Error('Wallet not connected');
     }
@@ -180,7 +197,7 @@ export function useOmniFuse() {
     } finally {
       setIsLoading(false);
     }
-  }, [signer, isConnected, loadUserPosition]);
+  }, [isConnected, loadUserPosition]);
 
   // Get token balance
   const getTokenBalance = useCallback(async (tokenAddress, network) => {
@@ -225,6 +242,7 @@ export function useOmniFuse() {
 
   // Set vault address in executor (admin function)
   const setVaultAddress = useCallback(async (network, vaultAddress) => {
+    const signer = await getSigner();
     if (!signer || !isConnected) {
       throw new Error('Wallet not connected');
     }
@@ -248,7 +266,7 @@ export function useOmniFuse() {
     } finally {
       setIsLoading(false);
     }
-  }, [signer, isConnected]);
+  }, [isConnected]);
 
   // Clear error
   const clearError = useCallback(() => {

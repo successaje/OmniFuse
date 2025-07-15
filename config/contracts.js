@@ -44,7 +44,7 @@ export const ZRC20_TOKENS = {
   ZETA_TESTNET: {
     // These are example addresses - replace with actual ZRC-20 addresses
     USDC: '0x236b0de675cc8f46ae186897fccefe3370c9eded', // Example
-    ETH: '0x2ca7d64A7EFE2D62A725E2B35Cf7230D6677FfEe', // Example
+    ETH: '0x236b0DE675cC8F46AE186897fCCeFe3370C9eDeD', // Example
     // Add more as needed
   },
 };
@@ -54,6 +54,8 @@ export const PYTH_PRICE_IDS = {
   // These are example IDs - replace with actual Pyth price feed IDs
   USDC: '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace',
   ETH: '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace',
+  BSCUSD: '0x2f95862b045670cd22bee3114c39763a4a08beeb663b145d283c31d7d1101c4f',
+  AVAXUSD: '0x93da3352f9f1d105fdfe4971cfa80e9dd777bfc5d0f683ebb6e1294b92137bb7',
   // Add more as needed
 };
 
@@ -76,6 +78,46 @@ export const CROSS_CHAIN_CONFIG = {
     LIQUIDATE: 500000,
   },
 };
+
+// Asset configuration for cross-chain assets
+export const ASSETS = [
+  {
+    symbol: "USDC.FUJI",
+    type: "ERC20",
+    decimals: 6,
+    zrc20: {
+      address: "0x8344d6f84d26f998fa070BbEA6D2E15E359e2641",
+      chain: "ZETA_TESTNET",
+    },
+    erc20: {
+      address: "0x5425890298aed601595a70AB815c96711a31Bc65",
+      chain: "AVALANCHE_FUJI",
+    },
+  },
+  {
+    symbol: "USDC.BSC",
+    type: "ERC20",
+    decimals: 6,
+    zrc20: {
+      address: "0x7c8dDa80bbBE1254a7aACf3219EBe1481c6E01d7",
+      chain: "ZETA_TESTNET",
+    },
+    erc20: {
+      address: "0x64544969ed7EBf5f083679233325356EbE738930",
+      chain: "BSC_TESTNET",
+    },
+  },
+  {
+    symbol: "ETH.BASESEPOLIA",
+    type: "Gas",
+    decimals: 18,
+    zrc20: {
+      address: "0x236b0DE675cC8F46AE186897fCCeFe3370C9eDeD",
+      chain: "ZETA_TESTNET",
+    },
+    erc20: null, // Native gas, not ERC20
+  },
+];
 
 // Helper function to get contract address by network and contract type
 export const getContractAddress = (network, contractType) => {
@@ -124,3 +166,12 @@ export const getPythPriceId = (token) => {
   }
   return priceId;
 }; 
+
+// Helper to get asset config by symbol and network
+export function getAssetConfig(symbol, network) {
+  return ASSETS.find(
+    (asset) =>
+      asset.symbol === symbol &&
+      (asset.erc20?.chain === network || asset.zrc20.chain === network)
+  );
+} 

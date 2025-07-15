@@ -4,6 +4,7 @@ import LandingHeader from '../components/LandingHeader';
 import { useWalletPersistence } from '../hooks/useWalletPersistence';
 import { useOmniFuse } from '../hooks/useOmniFuse';
 import { ethers } from 'ethers';
+import AssetNetworkSelector from '../components/AssetNetworkSelector';
 
 // Mock user assets and positions
 const userAssets = [
@@ -259,6 +260,7 @@ export default function ManagePage() {
   const [selectedDepositChain, setSelectedDepositChain] = useState('');
   const [selectedDepositAsset, setSelectedDepositAsset] = useState('');
   const [transactionStatus, setTransactionStatus] = useState(null);
+  const [assetNetworkSelection, setAssetNetworkSelection] = useState({});
 
   useEffect(() => {
     setMounted(true);
@@ -300,16 +302,16 @@ export default function ManagePage() {
       
       switch (action) {
         case 'supply':
-          result = await supplyToZeta(params.network, params.assetAddress, params.amount);
+          result = await supplyToZeta(assetNetworkSelection.network, assetNetworkSelection.assetAddress, amount);
           break;
         case 'borrow':
-          result = await borrowCrossChain(params.assetAddress, params.amount, params.destChainId);
+          result = await borrowCrossChain(assetNetworkSelection.assetAddress, amount, assetNetworkSelection.destChainId);
           break;
         case 'repay':
-          result = await repayToZeta(params.network, params.assetAddress, params.amount);
+          result = await repayToZeta(assetNetworkSelection.network, assetNetworkSelection.assetAddress, amount);
           break;
         case 'withdraw':
-          result = await withdrawCrossChain(params.assetAddress, params.amount, params.destChainId);
+          result = await withdrawCrossChain(assetNetworkSelection.assetAddress, amount, assetNetworkSelection.destChainId);
           break;
         default:
           throw new Error(`Unknown action: ${action}`);
@@ -470,6 +472,7 @@ export default function ManagePage() {
                     setSelectedDepositChain('');
                     setSelectedDepositAsset('');
                     setAmount('');
+                    setAssetNetworkSelection({});
                   }}
                   className="px-6 py-3 bg-[var(--primary-accent)] text-white rounded-xl font-medium hover:bg-[var(--primary-accent)]/90 transition-colors"
                 >
@@ -598,6 +601,7 @@ export default function ManagePage() {
                           setSelectedDepositChain(asset.chain);
                           setSelectedDepositAsset(asset.asset);
                           setAmount('');
+                          setAssetNetworkSelection({ asset: asset.asset, network: asset.chain });
                         }}
                         className="flex-1 bg-[var(--primary-accent)] text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-[var(--primary-accent)]/90 transition-colors"
                       >
@@ -608,6 +612,7 @@ export default function ManagePage() {
                           setSelectedAsset(asset);
                           setModalType('transfer');
                           setShowModal(true);
+                          setAssetNetworkSelection({ asset: asset.asset, network: asset.chain });
                         }}
                         className="flex-1 bg-[var(--card-bg)] border border-[var(--primary-accent)] text-[var(--primary-accent)] py-2 px-4 rounded-lg text-sm font-medium hover:bg-[var(--primary-accent)]/10 transition-colors"
                       >
@@ -683,6 +688,7 @@ export default function ManagePage() {
                           setSelectedAsset(position);
                           setModalType('borrow');
                           setShowModal(true);
+                          setAssetNetworkSelection({ asset: position.asset, network: position.chain });
                         }}
                         className="flex-1 bg-[var(--primary-accent)] text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-[var(--primary-accent)]/90 transition-colors"
                       >
@@ -858,47 +864,15 @@ export default function ManagePage() {
                   <h4 className="text-lg font-bold mb-4">Transfer Assets</h4>
                   
                   <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">Asset</label>
-                      <select className="w-full px-4 py-2 rounded-lg bg-[var(--background)] border border-[#23272F]/10 text-[var(--text-main)]">
-                        <option>Select Asset</option>
-                        <option>USDC</option>
-                        <option>ZETA</option>
-                        <option>ETH</option>
-                        <option>AVAX</option>
-                        <option>SOL</option>
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">From Chain</label>
-                      <select className="w-full px-4 py-2 rounded-lg bg-[var(--background)] border border-[#23272F]/10 text-[var(--text-main)]">
-                        <option>Select Source Chain</option>
-                        <option>Ethereum</option>
-                        <option>ZetaChain</option>
-                        <option>Base</option>
-                        <option>Avalanche</option>
-                        <option>Solana</option>
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">To Chain</label>
-                      <select className="w-full px-4 py-2 rounded-lg bg-[var(--background)] border border-[#23272F]/10 text-[var(--text-main)]">
-                        <option>Select Destination Chain</option>
-                        <option>Ethereum</option>
-                        <option>ZetaChain</option>
-                        <option>Base</option>
-                        <option>Avalanche</option>
-                        <option>Solana</option>
-                      </select>
-                    </div>
+                    <AssetNetworkSelector value={assetNetworkSelection} onChange={setAssetNetworkSelection} />
                     
                     <div>
                       <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">Amount</label>
                       <input 
                         type="number" 
                         placeholder="0.00"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
                         className="w-full px-4 py-2 rounded-lg bg-[var(--background)] border border-[#23272F]/10 text-[var(--text-main)]"
                       />
                     </div>
@@ -1045,6 +1019,7 @@ export default function ManagePage() {
                   setSelectedDepositChain('');
                   setSelectedDepositAsset('');
                   setAmount('');
+                  setAssetNetworkSelection({});
                 }}
                 className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
               >
@@ -1061,81 +1036,7 @@ export default function ManagePage() {
                 </p>
                 
                 {/* Chain Selection */}
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">Select Chain</label>
-                  <select 
-                    value={selectedDepositChain}
-                    onChange={(e) => setSelectedDepositChain(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg bg-[var(--background)] border border-[#23272F]/10 text-[var(--text-main)] focus:outline-none focus:border-[var(--primary-accent)]"
-                  >
-                    <option value="">Select a chain</option>
-                    {supportedChains.map((chain) => (
-                      <option key={chain.id} value={chain.name}>
-                        {chain.icon} {chain.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                {/* Asset Selection */}
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">Select Asset</label>
-                  <select 
-                    value={selectedDepositAsset}
-                    onChange={(e) => setSelectedDepositAsset(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg bg-[var(--background)] border border-[#23272F]/10 text-[var(--text-main)] focus:outline-none focus:border-[var(--primary-accent)]"
-                    disabled={!selectedDepositChain}
-                  >
-                    <option value="">Select an asset</option>
-                    {selectedDepositChain && (
-                      <>
-                        {selectedDepositChain === 'Ethereum' && (
-                          <>
-                            <option value="USDC">USDC</option>
-                            <option value="USDT">USDT</option>
-                            <option value="ETH">ETH</option>
-                            <option value="WBTC">WBTC</option>
-                          </>
-                        )}
-                        {selectedDepositChain === 'ZetaChain' && (
-                          <>
-                            <option value="ZETA">ZETA</option>
-                            <option value="USDC">USDC</option>
-                            <option value="USDT">USDT</option>
-                          </>
-                        )}
-                        {selectedDepositChain === 'Base' && (
-                          <>
-                            <option value="ETH">ETH</option>
-                            <option value="USDC">USDC</option>
-                            <option value="USDT">USDT</option>
-                          </>
-                        )}
-                        {selectedDepositChain === 'Avalanche' && (
-                          <>
-                            <option value="AVAX">AVAX</option>
-                            <option value="USDC">USDC</option>
-                            <option value="USDT">USDT</option>
-                          </>
-                        )}
-                        {selectedDepositChain === 'Solana' && (
-                          <>
-                            <option value="SOL">SOL</option>
-                            <option value="USDC">USDC</option>
-                            <option value="USDT">USDT</option>
-                          </>
-                        )}
-                        {selectedDepositChain === 'BNB Chain' && (
-                          <>
-                            <option value="BNB">BNB</option>
-                            <option value="USDC">USDC</option>
-                            <option value="USDT">USDT</option>
-                          </>
-                        )}
-                      </>
-                    )}
-                  </select>
-                </div>
+                <AssetNetworkSelector value={assetNetworkSelection} onChange={setAssetNetworkSelection} />
                 
                 {/* Amount Input */}
                 <div>
@@ -1146,7 +1047,7 @@ export default function ManagePage() {
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     className="w-full px-4 py-3 rounded-lg bg-[var(--background)] border border-[#23272F]/10 text-[var(--text-main)] focus:outline-none focus:border-[var(--primary-accent)]"
-                    disabled={!selectedDepositAsset}
+                    disabled={!assetNetworkSelection.asset}
                   />
                 </div>
                 
@@ -1179,15 +1080,15 @@ export default function ManagePage() {
                 </div>
                 
                 {/* Transaction Details */}
-                {selectedDepositAsset && amount && (
+                {assetNetworkSelection.asset && amount && (
                   <div className="space-y-2 text-sm bg-[var(--background)] p-4 rounded-lg">
                     <div className="flex justify-between">
                       <span className="text-[var(--text-muted)]">Asset</span>
-                      <span className="font-medium">{selectedDepositAsset}</span>
+                      <span className="font-medium">{assetNetworkSelection.asset}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[var(--text-muted)]">Chain</span>
-                      <span className="font-medium">{selectedDepositChain}</span>
+                      <span className="font-medium">{assetNetworkSelection.network}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[var(--text-muted)]">Amount</span>
@@ -1206,14 +1107,14 @@ export default function ManagePage() {
                 
                 <button 
                   className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                    selectedDepositChain && selectedDepositAsset && amount
+                    assetNetworkSelection.asset && amount
                       ? 'bg-[var(--primary-accent)] text-white hover:bg-[var(--primary-accent)]/90'
                       : 'bg-[var(--card-bg)] text-[var(--text-muted)] cursor-not-allowed'
                   }`}
-                  disabled={!selectedDepositChain || !selectedDepositAsset || !amount}
+                  disabled={!assetNetworkSelection.asset || !amount}
                 >
-                  {selectedDepositChain && selectedDepositAsset && amount 
-                    ? `Deposit ${selectedDepositAsset} on ${selectedDepositChain}`
+                  {assetNetworkSelection.asset && amount 
+                    ? `Deposit ${assetNetworkSelection.asset} on ${assetNetworkSelection.network}`
                     : 'Select chain, asset, and amount'
                   }
                 </button>
@@ -1227,6 +1128,8 @@ export default function ManagePage() {
                   Borrow against your cross-chain collateral
                 </p>
                 
+                <AssetNetworkSelector value={assetNetworkSelection} onChange={setAssetNetworkSelection} />
+
                 <div>
                   <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">Borrow Amount</label>
                   <input 
@@ -1287,6 +1190,8 @@ export default function ManagePage() {
                   Repay your borrowed assets from any chain
                 </p>
                 
+                <AssetNetworkSelector value={assetNetworkSelection} onChange={setAssetNetworkSelection} />
+
                 <div>
                   <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">Repay Amount</label>
                   <input 

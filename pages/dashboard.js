@@ -4,6 +4,7 @@ import LandingHeader from '../components/LandingHeader';
 import { useAccount } from 'wagmi';
 import { useOmniFuse } from '../hooks/useOmniFuse';
 import { ethers } from 'ethers';
+import AssetNetworkSelector from '../components/AssetNetworkSelector';
 
 // Helper function to format user portfolio data
 const formatUserPortfolio = (userPosition) => {
@@ -178,6 +179,7 @@ export default function DashboardPage() {
   const { userPosition, isLoading } = useOmniFuse();
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [assetNetworkSelection, setAssetNetworkSelection] = useState({});
 
   useEffect(() => {
     setMounted(true);
@@ -479,7 +481,7 @@ export default function DashboardPage() {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-[var(--text-muted)]">Health Factor</span>
-                    <span className="font-medium text-green-500">{userPortfolio.healthFactor}</span>
+                    <span className="font-medium text-green-500">{userPosition?.healthFactor}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-[var(--text-muted)]">Liquidation Risk</span>

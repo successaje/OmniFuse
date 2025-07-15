@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { useAccount } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import TestIntegration from '../components/TestIntegration';
+import AssetNetworkSelector from '../components/AssetNetworkSelector';
 
 export default function AdminPage() {
   const router = useRouter();
@@ -23,6 +24,7 @@ export default function AdminPage() {
     { id: 2, level: 'warning', message: 'Health factor below 1.2 detected for 3 positions', timestamp: new Date(Date.now() - 600000) },
     { id: 3, level: 'success', message: 'Liquidation executed successfully on Polygon', timestamp: new Date(Date.now() - 3600000) },
   ]);
+  const [assetNetworkSelection, setAssetNetworkSelection] = useState({});
 
   const formatTimeAgo = (timestamp) => {
     const now = new Date();
@@ -88,9 +90,13 @@ export default function AdminPage() {
       </nav>
 
       <div className="max-w-7xl mx-auto px-6">
+        {/* Asset & Network Selector for admin/test actions */}
+        <div className="mb-6">
+          <AssetNetworkSelector value={assetNetworkSelection} onChange={setAssetNetworkSelection} />
+        </div>
         {/* Contract Integration Test */}
         <div className="panel-card mb-8">
-          <TestIntegration />
+          <TestIntegration assetNetworkSelection={assetNetworkSelection} />
         </div>
         
         {/* System Status */}
