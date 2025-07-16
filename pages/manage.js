@@ -297,25 +297,27 @@ export default function ManagePage() {
         type: 'pending',
         message: `Processing ${action}...`
       });
+      console.log('handleCrossChainAction', action, params);
 
       let result;
       
       switch (action) {
         case 'supply':
-          result = await supplyToZeta(assetNetworkSelection.network, assetNetworkSelection.assetAddress, amount);
+          result = await supplyToZeta(params.network, params.assetAddress, params.amount);
           break;
         case 'borrow':
-          result = await borrowCrossChain(assetNetworkSelection.assetAddress, amount, assetNetworkSelection.destChainId);
+          result = await borrowCrossChain(params.assetAddress, params.amount, params.destChainId);
           break;
         case 'repay':
-          result = await repayToZeta(assetNetworkSelection.network, assetNetworkSelection.assetAddress, amount);
+          result = await repayToZeta(params.network, params.assetAddress, params.amount);
           break;
         case 'withdraw':
-          result = await withdrawCrossChain(assetNetworkSelection.assetAddress, amount, assetNetworkSelection.destChainId);
+          result = await withdrawCrossChain(params.assetAddress, params.amount, params.destChainId);
           break;
         default:
           throw new Error(`Unknown action: ${action}`);
       }
+      console.log('Contract call result:', result);
 
       if (result.success) {
         setTransactionStatus({
@@ -328,9 +330,10 @@ export default function ManagePage() {
         throw new Error(result.error);
       }
     } catch (err) {
+      console.error('Contract call error:', err);
       setTransactionStatus({
         type: 'error',
-        message: err.message
+        message: err.message || 'Transaction failed.'
       });
     }
   };
@@ -1084,7 +1087,7 @@ export default function ManagePage() {
                   <div className="space-y-2 text-sm bg-[var(--background)] p-4 rounded-lg">
                     <div className="flex justify-between">
                       <span className="text-[var(--text-muted)]">Asset</span>
-                      <span className="font-medium">{assetNetworkSelection.asset}</span>
+                      <span className="font-medium">{assetNetworkSelection.asset?.symbol}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[var(--text-muted)]">Chain</span>
@@ -1107,17 +1110,42 @@ export default function ManagePage() {
                 
                 <button 
                   className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                    assetNetworkSelection.asset && amount
+                    isConnected && assetNetworkSelection.asset && amount && !isLoading
                       ? 'bg-[var(--primary-accent)] text-white hover:bg-[var(--primary-accent)]/90'
                       : 'bg-[var(--card-bg)] text-[var(--text-muted)] cursor-not-allowed'
                   }`}
-                  disabled={!assetNetworkSelection.asset || !amount}
+                  disabled={!isConnected || !assetNetworkSelection.asset || !amount || isLoading}
+                  onClick={() => {
+                    if (!isConnected) {
+                      setTransactionStatus({ type: 'error', message: 'Please connect your wallet to deposit.' });
+                      return;
+                    }
+                    const assetAddress = assetNetworkSelection.asset?.erc20?.address || assetNetworkSelection.asset?.zrc20?.address;
+                    const network = assetNetworkSelection.network;
+                    if (!assetAddress || !network) {
+                      setTransactionStatus({ type: 'error', message: 'Missing asset address or network.' });
+                      return;
+                    }
+                    console.log('Deposit button clicked', { network, assetAddress, amount });
+                    handleCrossChainAction('supply', {
+                      network,
+                      assetAddress,
+                      amount
+                    });
+                  }}
                 >
-                  {assetNetworkSelection.asset && amount 
-                    ? `Deposit ${assetNetworkSelection.asset} on ${assetNetworkSelection.network}`
-                    : 'Select chain, asset, and amount'
+                  {isLoading 
+                    ? 'Processing...'
+                    : isConnected && assetNetworkSelection.asset && amount 
+                      ? `Deposit ${assetNetworkSelection.asset?.symbol} on ${assetNetworkSelection.network}`
+                      : !isConnected
+                        ? 'Connect your wallet to deposit'
+                        : 'Select chain, asset, and amount'
                   }
                 </button>
+                {transactionStatus && transactionStatus.type === 'error' && (
+                  <div className="mt-2 text-red-500 text-sm font-medium">{transactionStatus.message}</div>
+                )}
               </div>
             )}
 
@@ -1177,8 +1205,20 @@ export default function ManagePage() {
                   </div>
                 </div>
                 
-                <button className="w-full bg-[var(--primary-accent)] text-white py-3 px-4 rounded-lg font-medium hover:bg-[var(--primary-accent)]/90 transition-colors">
-                  Borrow Assets
+                <button 
+                  className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
+                    !isLoading
+                      ? 'bg-[var(--primary-accent)] text-white hover:bg-[var(--primary-accent)]/90'
+                      : 'bg-[var(--card-bg)] text-[var(--text-muted)] cursor-not-allowed'
+                  }`}
+                  disabled={isLoading}
+                  onClick={() => handleCrossChainAction('borrow', {
+                    assetAddress: assetNetworkSelection.asset?.erc20?.address || assetNetworkSelection.asset?.zrc20?.address,
+                    amount: amount,
+                    destChainId: assetNetworkSelection.network // You may need to map network name to chainId
+                  })}
+                >
+                  {isLoading ? 'Processing...' : 'Borrow Assets'}
                 </button>
               </div>
             )}
@@ -1230,11 +1270,35 @@ export default function ManagePage() {
                 </div>
                 
                 <div className="flex gap-2">
-                  <button className="flex-1 bg-[var(--card-bg)] border border-[var(--primary-accent)] text-[var(--primary-accent)] py-3 px-4 rounded-lg font-medium hover:bg-[var(--primary-accent)]/10 transition-colors">
-                    Repay Partial
+                  <button 
+                    className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
+                      !isLoading
+                        ? 'bg-[var(--card-bg)] border border-[var(--primary-accent)] text-[var(--primary-accent)] hover:bg-[var(--primary-accent)]/10'
+                        : 'bg-[var(--card-bg)] text-[var(--text-muted)] cursor-not-allowed'
+                    }`}
+                    disabled={isLoading}
+                    onClick={() => handleCrossChainAction('repay', {
+                      network: assetNetworkSelection.network,
+                      assetAddress: assetNetworkSelection.asset?.erc20?.address || assetNetworkSelection.asset?.zrc20?.address,
+                      amount: amount
+                    })}
+                  >
+                    {isLoading ? 'Processing...' : 'Repay Partial'}
                   </button>
-                  <button className="flex-1 bg-[var(--primary-accent)] text-white py-3 px-4 rounded-lg font-medium hover:bg-[var(--primary-accent)]/90 transition-colors">
-                    Repay All
+                  <button 
+                    className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
+                      !isLoading
+                        ? 'bg-[var(--primary-accent)] text-white hover:bg-[var(--primary-accent)]/90'
+                        : 'bg-[var(--card-bg)] text-[var(--text-muted)] cursor-not-allowed'
+                    }`}
+                    disabled={isLoading}
+                    onClick={() => handleCrossChainAction('repay', {
+                      network: assetNetworkSelection.network,
+                      assetAddress: assetNetworkSelection.asset?.erc20?.address || assetNetworkSelection.asset?.zrc20?.address,
+                      amount: selectedAsset?.borrowed || '0' // Repay all borrowed amount
+                    })}
+                  >
+                    {isLoading ? 'Processing...' : 'Repay All'}
                   </button>
                 </div>
               </div>

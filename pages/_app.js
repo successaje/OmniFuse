@@ -5,9 +5,9 @@ import { ThemeProvider } from '../components/ThemeProvider';
 import RainbowKitThemeProvider from '../components/RainbowKitThemeProvider';
 import { useEffect, useState } from 'react';
 
-import { getDefaultWallets } from '@rainbow-me/rainbowkit';
-import { configureChains, createConfig, WagmiConfig } from 'wagmi';
-import { publicProvider } from 'wagmi/providers/public';
+import { getDefaultConfig, RainbowKitProvider } from '@rainbow-me/rainbowkit';
+import { WagmiProvider } from 'wagmi';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { baseSepolia, sepolia, bscTestnet, avalancheFuji } from 'wagmi/chains';
 
 // Custom ZetaAthens chain configuration
@@ -42,29 +42,14 @@ const sepoliaCustom = {
   },
 };
 
-const { chains, publicClient, webSocketPublicClient } = configureChains(
-  [zetaAthens, bscTestnet, baseSepolia, sepoliaCustom, avalancheFuji],
-  [
-    publicProvider(),
-    // Add fallback provider for better reliability
-    publicProvider({ priority: 1 })
-  ]
-);
-
-const { connectors } = getDefaultWallets({
+const config = getDefaultConfig({
   appName: 'OmniFuse Lite',
   projectId: '514f5b55cb296fd534b978dcf5cf24e8', // WalletConnect project ID
-  chains,
+  chains: [zetaAthens, bscTestnet, baseSepolia, sepoliaCustom, avalancheFuji],
+  ssr: true,
 });
 
-const wagmiConfig = createConfig({
-  autoConnect: true, // Enable auto-connect for better persistence
-  connectors,
-  publicClient,
-  webSocketPublicClient: null, // Disable WebSocket to prevent connection issues
-  // Add persistence configuration
-  storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-});
+const queryClient = new QueryClient();
 
 export default function App({ Component, pageProps }) {
   const [hasError, setHasError] = useState(false);
@@ -156,21 +141,25 @@ export default function App({ Component, pageProps }) {
   return (
     <ThemeProvider>
       <ErrorBoundary onError={() => setHasError(true)}>
-        <WagmiConfig config={wagmiConfig}>
-          <RainbowKitThemeProvider chains={chains}>
-            <main className="bg-[var(--background)] font-inter transition-colors duration-500">
-              {isConnecting && (
-                <div className="fixed top-4 right-4 z-50 bg-[var(--primary-accent)] text-white px-4 py-2 rounded-lg shadow-lg">
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-sm">Reconnecting...</span>
-                  </div>
-                </div>
-              )}
-              <Component {...pageProps} />
-            </main>
-          </RainbowKitThemeProvider>
-        </WagmiConfig>
+        <WagmiProvider config={config}>
+          <QueryClientProvider client={queryClient}>
+            <RainbowKitProvider>
+              <RainbowKitThemeProvider>
+                <main className="bg-[var(--background)] font-inter transition-colors duration-500">
+                  {isConnecting && (
+                    <div className="fixed top-4 right-4 z-50 bg-[var(--primary-accent)] text-white px-4 py-2 rounded-lg shadow-lg">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-sm">Reconnecting...</span>
+                      </div>
+                    </div>
+                  )}
+                  <Component {...pageProps} />
+                </main>
+              </RainbowKitThemeProvider>
+            </RainbowKitProvider>
+          </QueryClientProvider>
+        </WagmiProvider>
       </ErrorBoundary>
     </ThemeProvider>
   );

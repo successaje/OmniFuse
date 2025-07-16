@@ -74,7 +74,7 @@ export default function LandingHeader({ brandClass = '' }) {
           ) : (
             <button
               onClick={() => router.push('/discover')}
-              className="px-6 py-2 rounded-xl font-semibold text-white bg-gradient-to-r from-[#3B82F6] to-[#22D3EE] shadow-glow hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="px-6 py-2 rounded-xl font-semibold text-[var(--text-main)] bg-gradient-to-r from-[#3B82F6] to-[#22D3EE] shadow-glow hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-blue-400"
             >
               Launch App
             </button>
@@ -113,7 +113,7 @@ export default function LandingHeader({ brandClass = '' }) {
           ) : (
             <button
               onClick={() => router.push('/discover')}
-              className="w-full mt-2 px-6 py-2 rounded-xl font-semibold text-white bg-gradient-to-r from-[#3B82F6] to-[#22D3EE] shadow-glow hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full mt-2 px-6 py-2 rounded-xl font-semibold text-[var(--text-main)] bg-gradient-to-r from-[#3B82F6] to-[#22D3EE] shadow-glow hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-blue-400"
             >
               Launch App
             </button>

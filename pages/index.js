@@ -2,6 +2,7 @@ import LandingHeader from '../components/LandingHeader';
 import { useTheme } from '../components/ThemeProvider';
 import { useEffect, useState, useRef } from 'react';
 import AssetNetworkSelector from '../components/AssetNetworkSelector';
+import { useRouter } from 'next/router';
 
 const logos = [
   { src: '/logos/ethereum-eth-logo.png', alt: 'Ethereum', color: '#627EEA' },
@@ -75,6 +76,7 @@ export default function LandingPage() {
   const { theme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [assetNetworkSelection, setAssetNetworkSelection] = useState({});
+  const router = useRouter();
   useEffect(() => { setMounted(true); }, []);
   // Helper to get theme-aware logo
   function themedLogo(base, ext = 'png') {
@@ -129,20 +131,8 @@ export default function LandingPage() {
     <>
       <LandingHeader brandClass="font-orbitron" />
       <section className="relative flex flex-col items-center justify-center min-h-screen w-full bg-[var(--background)] text-[var(--text-main)] transition-colors duration-500 pt-16">
-        {/* Asset & Network Selector for onboarding/preview */}
-        <div className="mb-8">
-          <AssetNetworkSelector value={assetNetworkSelection} onChange={setAssetNetworkSelection} />
-        </div>
-        {assetNetworkSelection.asset && assetNetworkSelection.network && (
-          <div className="flex items-center gap-4 mb-6">
-            {assetNetworkSelection.asset.icon && (
-              <img src={assetNetworkSelection.asset.icon} alt={assetNetworkSelection.asset.symbol} className="w-8 h-8 rounded-full" />
-            )}
-            <span className="font-medium">{assetNetworkSelection.asset.symbol}</span>
-            <span className="text-[var(--text-muted)]">on</span>
-            <span className="font-medium">{assetNetworkSelection.network}</span>
-          </div>
-        )}
+        {/* Asset & Network Selector removed from landing page */}
+        {/* Removed asset/network summary block */}
         {/* Enhanced starfield background */}
         <div className="absolute inset-0 w-full h-full z-0 pointer-events-none">
           <svg width="100%" height="100%" className="absolute inset-0 w-full h-full">
@@ -168,7 +158,7 @@ export default function LandingPage() {
           <div className="flex-1 flex flex-col items-center md:items-start justify-center text-center md:text-left px-2 md:px-0">
             <h1 className="hero-headline font-orbitron text-4xl md:text-6xl font-extrabold gradient-text mb-4 drop-shadow-lg">Cross-Chain Lending, Unified</h1>
             <p className="text-lg md:text-2xl text-[var(--text-muted)] max-w-xl mb-8">Deposit on any chain. Borrow anywhere. Powered by ZetaChain's omnichain protocol and supporting your favorite blockchains.</p>
-            <button onClick={() => window.location.href = '/discover'} className="btn-primary text-lg px-10 py-4 shadow-glow hover:scale-105 transition-transform">Launch App</button>
+            <button onClick={() => router.push('/discover')} className="btn-primary text-lg px-10 py-4 shadow-glow hover:scale-105 transition-transform">Launch App</button>
             <div className="mt-6 flex items-center justify-center md:justify-start w-full">
               <span className="text-xs text-[var(--text-muted)] mr-2 tracking-wide">Powered by</span>
               {/* Light mode logo */}
@@ -434,7 +424,7 @@ export default function LandingPage() {
         <div className="max-w-2xl w-full mx-auto flex flex-col items-center rounded-3xl bg-[var(--card-bg)] shadow-2xl border border-[#23272F]/10 px-8 py-12 text-center backdrop-blur-md">
           <h2 className="text-3xl md:text-4xl font-orbitron font-extrabold mb-4 gradient-text">Ready to Experience Omnichain Lending?</h2>
           <p className="text-lg text-[var(--text-muted)] mb-8">Join the future of DeFi. Deposit, borrow, and earn across any chain—instantly and securely.</p>
-          <button onClick={() => window.location.href = '/discover'} className="btn-primary text-lg px-10 py-4 shadow-glow hover:scale-105 transition-transform mb-4">Launch App</button>
+          <button onClick={() => router.push('/discover')} className="btn-primary text-lg px-10 py-4 shadow-glow hover:scale-105 transition-transform mb-4">Launch App</button>
           <div className="flex items-center justify-center mt-2">
             <span className="text-xs text-[var(--text-muted)] mr-2 tracking-wide">Powered by</span>
             {mounted && (

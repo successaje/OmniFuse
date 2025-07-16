@@ -9,17 +9,28 @@ export function useOmniFuse() {
   const { data: walletClient } = useWalletClient();
 
   // Helper to get ethers.js Signer from walletClient (for legacy contractService)
-  const getSigner = () => {
-    if (!walletClient) return null;
-    // If contractService is updated to support viem, pass walletClient directly instead
-    // For now, try to get a signer from the walletClient
-    // NOTE: This only works if walletClient has an ethers.js provider (e.g. MetaMask)
-    if (walletClient?.ethereum) {
-      const provider = new ethers.BrowserProvider(walletClient.ethereum);
-      return provider.getSigner();
+  const getSigner = useCallback(async () => {
+    console.log('getSigner called:', { isConnected, address, walletClient });
+    if (!walletClient) {
+      throw new Error('Wallet client not available. Please reconnect your wallet.');
     }
-    return null;
-  };
+    
+    try {
+      // For Wagmi v2, we need to create a signer from the wallet client
+      // Since walletClientToSigner is not available, we'll use a different approach
+      if (typeof window !== 'undefined' && window.ethereum) {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        console.log('Created signer from window.ethereum:', signer);
+        return signer;
+      } else {
+        throw new Error('No ethereum provider available');
+      }
+    } catch (e) {
+      console.warn('Failed to create signer:', e);
+      throw new Error('Failed to create signer from wallet client');
+    }
+  }, [walletClient, isConnected, address]);
   
   const [userPosition, setUserPosition] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -49,6 +60,7 @@ export function useOmniFuse() {
 
   // Supply assets from EVM to ZetaChain
   const supplyToZeta = useCallback(async (network, assetAddress, amount) => {
+    console.log('supplyToZeta called:', { isConnected, address, walletClient, network, assetAddress, amount });
     const signer = await getSigner();
     if (!signer || !isConnected) {
       throw new Error('Wallet not connected');

@@ -346,7 +346,7 @@ export default function DashboardPage() {
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-bold font-orbitron">Your Positions</h3>
                 <div className="flex gap-2">
-                  <button className="px-4 py-2 bg-[var(--primary-accent)] text-white rounded-lg text-sm font-medium">
+                  <button className="px-4 py-2 bg-[var(--primary-accent)] text-[var(--text-main)] rounded-lg text-sm font-medium">
                     Supply
                   </button>
                   <button className="px-4 py-2 bg-[var(--card-bg)] border border-[var(--primary-accent)] text-[var(--primary-accent)] rounded-lg text-sm font-medium">
@@ -400,7 +400,7 @@ export default function DashboardPage() {
 
                     {/* Action Buttons */}
                     <div className="flex gap-2">
-                      <button className="flex-1 bg-[var(--primary-accent)] text-white py-2 px-4 rounded-lg text-sm font-medium">
+                      <button className="flex-1 bg-[var(--primary-accent)] text-[var(--text-main)] py-2 px-4 rounded-lg text-sm font-medium">
                         Manage
                       </button>
                       <button className="flex-1 bg-[var(--card-bg)] border border-[var(--primary-accent)] text-[var(--primary-accent)] py-2 px-4 rounded-lg text-sm font-medium">

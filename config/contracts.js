@@ -37,26 +37,37 @@ export const NETWORKS = {
       decimals: 18,
     },
   },
+  AVALANCHE_FUJI: {
+    id: 43113,
+    name: 'Avalanche Fuji',
+    rpcUrl: 'https://api.avax-test.network/ext/bc/C/rpc',
+    explorer: 'https://testnet.snowtrace.io',
+    nativeCurrency: {
+      name: 'AVAX',
+      symbol: 'AVAX',
+      decimals: 18,
+    },
+  },
 };
 
 // Common ZRC-20 token addresses on ZetaChain Athens testnet
 export const ZRC20_TOKENS = {
   ZETA_TESTNET: {
-    // These are example addresses - replace with actual ZRC-20 addresses
-    USDC: '0x236b0de675cc8f46ae186897fccefe3370c9eded', // Example
-    ETH: '0x236b0DE675cC8F46AE186897fCCeFe3370C9eDeD', // Example
-    // Add more as needed
+    
+    USDC: '0x236b0de675cc8f46ae186897fccefe3370c9eded', 
+    ETH: '0x236b0DE675cC8F46AE186897fCCeFe3370C9eDeD', 
+    
   },
 };
 
 // Pyth price feed IDs for assets
 export const PYTH_PRICE_IDS = {
-  // These are example IDs - replace with actual Pyth price feed IDs
+  
   USDC: '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace',
   ETH: '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace',
   BSCUSD: '0x2f95862b045670cd22bee3114c39763a4a08beeb663b145d283c31d7d1101c4f',
   AVAXUSD: '0x93da3352f9f1d105fdfe4971cfa80e9dd777bfc5d0f683ebb6e1294b92137bb7',
-  // Add more as needed
+  
 };
 
 // Cross-chain configuration

@@ -9,6 +9,13 @@ const nextConfig = {
     NEXT_PUBLIC_ETHEREUM_RPC_URL: process.env.NEXT_PUBLIC_ETHEREUM_RPC_URL,
     NEXT_PUBLIC_BNB_RPC_URL: process.env.NEXT_PUBLIC_BNB_RPC_URL,
   },
+  webpack(config) {
+    config.module.rules.push({
+      test: /HeartbeatWorker\.js$/,
+      type: 'javascript/auto',
+    });
+    return config;
+  },
 }
 
 module.exports = nextConfig 

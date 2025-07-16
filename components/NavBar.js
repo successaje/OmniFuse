@@ -12,7 +12,7 @@ export default function NavBar() {
         {/* Logo */}
         <div className="flex items-center cursor-pointer" onClick={() => router.push('/')}> 
           <span className="text-2xl font-bold gradient-text mr-2">⚡</span>
-          <span className="text-xl font-bold text-white tracking-tight">OmniFuse</span>
+          <span className="text-xl font-bold text-[var(--text-main)] tracking-tight">OmniFuse</span>
         </div>
         {/* Desktop Nav */}
         <div className="hidden md:flex items-center space-x-2">
@@ -24,7 +24,7 @@ export default function NavBar() {
         </div>
         {/* Mobile Hamburger */}
         <div className="md:hidden flex items-center">
-          <button onClick={() => setMenuOpen(!menuOpen)} className="text-white focus:outline-none">
+          <button onClick={() => setMenuOpen(!menuOpen)} className="text-[var(--text-main)] focus:outline-none">
             <svg width="28" height="28" fill="none" viewBox="0 0 24 24">
               <path d="M4 6h16M4 12h16M4 18h16" stroke="#F3F4F6" strokeWidth="2" strokeLinecap="round"/>
             </svg>
