@@ -14,7 +14,7 @@ const appNavLinks = [
   { name: 'Discover', href: '/discover' },
   { name: 'Dashboard', href: '/dashboard' },
   { name: 'Manage', href: '/manage' },
-  { name: 'Stats', href: '/stats' },
+  { name: 'Earn', href: '/earn' },
   { name: 'Portfolio', href: '/portfolio' },
 ];
 

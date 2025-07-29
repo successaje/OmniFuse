@@ -244,7 +244,8 @@ export default function ManagePage() {
     checkLiquidationStatus,
     clearError,
     clearLastTransaction,
-    chainIds
+    chainIds,
+    canTransact,
   } = useOmniFuse();
   
   const [mounted, setMounted] = useState(false);
@@ -1110,14 +1111,14 @@ export default function ManagePage() {
                 
                 <button 
                   className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                    isConnected && assetNetworkSelection.asset && amount && !isLoading
+                    canTransact && assetNetworkSelection.asset && amount && !isLoading
                       ? 'bg-[var(--primary-accent)] text-white hover:bg-[var(--primary-accent)]/90'
                       : 'bg-[var(--card-bg)] text-[var(--text-muted)] cursor-not-allowed'
                   }`}
-                  disabled={!isConnected || !assetNetworkSelection.asset || !amount || isLoading}
+                  disabled={!canTransact || !assetNetworkSelection.asset || !amount || isLoading}
                   onClick={() => {
-                    if (!isConnected) {
-                      setTransactionStatus({ type: 'error', message: 'Please connect your wallet to deposit.' });
+                    if (!canTransact) {
+                      setTransactionStatus({ type: 'error', message: 'Please connect or reconnect your wallet to deposit.' });
                       return;
                     }
                     const assetAddress = assetNetworkSelection.asset?.erc20?.address || assetNetworkSelection.asset?.zrc20?.address;
@@ -1136,15 +1137,20 @@ export default function ManagePage() {
                 >
                   {isLoading 
                     ? 'Processing...'
-                    : isConnected && assetNetworkSelection.asset && amount 
+                    : canTransact && assetNetworkSelection.asset && amount 
                       ? `Deposit ${assetNetworkSelection.asset?.symbol} on ${assetNetworkSelection.network}`
-                      : !isConnected
-                        ? 'Connect your wallet to deposit'
+                      : !canTransact
+                        ? 'Connect or Reconnect your wallet to deposit'
                         : 'Select chain, asset, and amount'
                   }
                 </button>
                 {transactionStatus && transactionStatus.type === 'error' && (
                   <div className="mt-2 text-red-500 text-sm font-medium">{transactionStatus.message}</div>
+                )}
+                {(!canTransact && isConnected) && (
+                  <div className="mt-2 text-yellow-500 text-sm font-medium">
+                    Wallet is connected, but not ready. Please reconnect your wallet.
+                  </div>
                 )}
               </div>
             )}

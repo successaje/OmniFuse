@@ -37,9 +37,9 @@ const OMNIVAULT_ABI = [
 
 const OMNIVEXECUTOR_ABI = [
   // Outbound functions
-  'function supplyToZeta(address asset, uint256 amount, tuple(bool onRevert, address revertAddress) revertOptions) external payable',
-  'function repayToZeta(address asset, uint256 amount, tuple(bool onRevert, address revertAddress) revertOptions) external payable',
-  'function closePositionOnZeta(address user, tuple(bool onRevert, address revertAddress) revertOptions) external',
+  'function supplyToZeta(address asset, uint256 amount, tuple(address revertAddress, bool callOnRevert, address abortAddress, bytes revertMessage, uint256 onRevertGasLimit) revertOptions) external payable',
+  'function repayToZeta(address asset, uint256 amount, tuple(address revertAddress, bool callOnRevert, address abortAddress, bytes revertMessage, uint256 onRevertGasLimit) revertOptions) external payable',
+  'function closePositionOnZeta(address user, tuple(address revertAddress, bool callOnRevert, address abortAddress, bytes revertMessage, uint256 onRevertGasLimit) revertOptions) external',
   
   // Config functions
   'function setVaultAddress(address vault) external',
@@ -119,27 +119,37 @@ class ContractService {
   async supplyToZeta(network, assetAddress, amount, signer) {
     try {
       const executor = this.getContract(network, 'OMNIVEXECUTOR', signer);
-      
-      // Prepare revert options
+      // Prepare revert options (match contract ABI order)
       const revertOptions = {
-        onRevert: true,
-        revertAddress: getContractAddress(network, 'OMNIVEXECUTOR')
+        revertAddress: getContractAddress(network, 'OMNIVEXECUTOR'),
+        callOnRevert: true,
+        abortAddress: '0x0000000000000000000000000000000000000000',
+        revertMessage: '0x',
+        onRevertGasLimit: 500000
       };
-
       // Approve tokens first
       const tokenContract = this.getERC20Contract(assetAddress, network, signer);
       const executorAddress = getContractAddress(network, 'OMNIVEXECUTOR');
-      
       const allowance = await tokenContract.allowance(await signer.getAddress(), executorAddress);
       if (allowance < amount) {
-        const approveTx = await tokenContract.approve(executorAddress, ethers.MaxUint256);
-        await approveTx.wait();
+        try {
+          // Prompt user for approval
+          const approveTx = await tokenContract.approve(executorAddress, ethers.MaxUint256);
+          await approveTx.wait();
+        } catch (approveError) {
+          // User rejected or approval failed
+          return {
+            success: false,
+            error: 'User rejected USDC approval or approval transaction failed. You must approve before supplying.',
+            network,
+            action: 'supply',
+            approvalRejected: true
+          };
+        }
       }
-
       // Execute supply
       const tx = await executor.supplyToZeta(assetAddress, amount, revertOptions);
       const receipt = await tx.wait();
-      
       return {
         success: true,
         txHash: receipt.hash,
@@ -209,27 +219,37 @@ class ContractService {
   async repayToZeta(network, assetAddress, amount, signer) {
     try {
       const executor = this.getContract(network, 'OMNIVEXECUTOR', signer);
-      
-      // Prepare revert options
+      // Prepare revert options (match contract ABI order)
       const revertOptions = {
-        onRevert: true,
-        revertAddress: getContractAddress(network, 'OMNIVEXECUTOR')
+        revertAddress: getContractAddress(network, 'OMNIVEXECUTOR'),
+        callOnRevert: true,
+        abortAddress: '0x0000000000000000000000000000000000000000',
+        revertMessage: '0x',
+        onRevertGasLimit: 500000
       };
-
       // Approve tokens first
       const tokenContract = this.getERC20Contract(assetAddress, network, signer);
       const executorAddress = getContractAddress(network, 'OMNIVEXECUTOR');
-      
       const allowance = await tokenContract.allowance(await signer.getAddress(), executorAddress);
       if (allowance < amount) {
-        const approveTx = await tokenContract.approve(executorAddress, ethers.MaxUint256);
-        await approveTx.wait();
+        try {
+          // Prompt user for approval
+          const approveTx = await tokenContract.approve(executorAddress, ethers.MaxUint256);
+          await approveTx.wait();
+        } catch (approveError) {
+          // User rejected or approval failed
+          return {
+            success: false,
+            error: 'User rejected USDC approval or approval transaction failed. You must approve before repaying.',
+            network,
+            action: 'repay',
+            approvalRejected: true
+          };
+        }
       }
-
       // Execute repay
       const tx = await executor.repayToZeta(assetAddress, amount, revertOptions);
       const receipt = await tx.wait();
-      
       return {
         success: true,
         txHash: receipt.hash,

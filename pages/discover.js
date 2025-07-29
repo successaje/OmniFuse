@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../components/ThemeProvider';
 import LandingHeader from '../components/LandingHeader';
+import ProtocolHighlights from '../components/ProtocolHighlights';
+import FeaturedMarketsCarousel from '../components/FeaturedMarketsCarousel';
+import NetworkAvailabilityGrid from '../components/NetworkAvailabilityGrid';
+import HowItWorks from '../components/HowItWorks';
+import Testimonials from '../components/Testimonials';
+import RewardsIncentives from '../components/RewardsIncentives';
+import EducationalExplainer from '../components/EducationalExplainer';
+import FeaturedBlogNews from '../components/FeaturedBlogNews';
 
 // Mock data for markets
 const markets = [
@@ -298,10 +306,57 @@ const stats = [
   { label: 'Avg Supply APY', value: '3.2%', change: '+0.3%', positive: true }
 ];
 
+// Add isFeatured to a few markets for demo
+const featuredMarkets = markets.slice(0, 6).map((m, i) => ({ ...m, isFeatured: i < 3 }));
+
+const networkChains = [
+  {
+    name: 'Ethereum',
+    icon: '/logos/ethereum-eth-logo.png',
+    status: 'Live',
+    assets: ['USDC', 'ETH']
+  },
+  {
+    name: 'BNB Chain',
+    icon: '/logos/bnb-bnb-logo.png',
+    status: 'Live',
+    assets: ['BNB', 'USDT']
+  },
+  {
+    name: 'Avalanche',
+    icon: '/logos/avalanche-avax-logo.png',
+    status: 'Live',
+    assets: ['USDC', 'USDT']
+  },
+  {
+    name: 'Polygon',
+    icon: '/logos/polygon-matic-logo.png',
+    status: 'Coming',
+    assets: ['MATIC']
+  },
+  {
+    name: 'Base',
+    icon: '/logos/base.png',
+    status: 'Live',
+    assets: ['ETH', 'USDC']
+  },
+  {
+    name: 'Solana',
+    icon: '/logos/solana-sol-logo.png',
+    status: 'Coming',
+    assets: ['SOL', 'USDC', 'USDT']
+  },
+  {
+    name: 'ZetaChain',
+    icon: '/logos/zetachain.png',
+    status: 'Live',
+    assets: ['ZETA']
+  }
+];
+
 export default function DiscoverPage() {
   const { theme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const [selectedChain, setSelectedChain] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('supplyAPY');
 
@@ -309,22 +364,10 @@ export default function DiscoverPage() {
     setMounted(true);
   }, []);
 
-  const chains = [
-    { id: 'all', name: 'All Chains', icon: '🌐' },
-    { id: 'zetachain', name: 'ZetaAthens', icon: '⚡' },
-    { id: 'bitcoin', name: 'Bitcoin', icon: '🟠' },
-    { id: 'ethereum', name: 'Sepolia', icon: '🔷' },
-    { id: 'base', name: 'Base Sepolia', icon: '🔵' },
-    { id: 'bnb', name: 'BNB Testnet', icon: '🟡' },
-    { id: 'avalanche', name: 'Avalanche Fuji', icon: '🔴' },
-    { id: 'solana', name: 'Solana', icon: '🟢' }
-  ];
-
   const filteredMarkets = markets.filter(market => {
-    const matchesChain = selectedChain === 'all' || market.chain.toLowerCase().includes(selectedChain);
     const matchesSearch = market.asset.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          market.chain.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesChain && matchesSearch;
+    return matchesSearch;
   });
 
   const sortedMarkets = [...filteredMarkets].sort((a, b) => {
@@ -388,24 +431,6 @@ export default function DiscoverPage() {
         {/* Filters and Search */}
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            {/* Chain Filter */}
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {chains.map((chain) => (
-                <button
-                  key={chain.id}
-                  onClick={() => setSelectedChain(chain.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition-all ${
-                    selectedChain === chain.id
-                      ? 'bg-[var(--primary-accent)] text-white'
-                      : 'bg-[var(--card-bg)] text-[var(--text-main)] hover:bg-[var(--primary-accent)]/10'
-                  }`}
-                >
-                  <span>{chain.icon}</span>
-                  <span className="text-sm font-medium">{chain.name}</span>
-                </button>
-              ))}
-            </div>
-
             {/* Search and Sort */}
             <div className="flex gap-4 items-center">
               <input
@@ -430,12 +455,38 @@ export default function DiscoverPage() {
           </div>
         </div>
 
-        {/* Markets Grid */}
+        {/* Protocol Highlights */}
+        <ProtocolHighlights />
+
+        {/* Featured Markets Carousel */}
+        <FeaturedMarketsCarousel markets={featuredMarkets} />
+
+        {/* Network Availability Section */}
+        <NetworkAvailabilityGrid chains={networkChains} />
+
+        {/* New: Rewards & Incentives */}
+        <RewardsIncentives />
+
+        {/* New: User Testimonials & Social Proof */}
+        <Testimonials />
+
+        {/* New: Educational/Explainer Content */}
+        <EducationalExplainer />
+
+        {/* New: Featured Blog/News */}
+        <FeaturedBlogNews />
+
+        {/* How It Works Section */}
+        <HowItWorks />
+
+        {/* Optionally keep the full markets grid below, or comment out for a cleaner look */}
+        {/*
         <div className="max-w-7xl mx-auto px-4 pb-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {sortedMarkets.map((market) => (
               <div key={market.id} className="bg-[var(--card-bg)] rounded-2xl p-6 border border-[#23272F]/10 hover:shadow-lg transition-all duration-300">
                 {/* Market Header */}
+                {/*
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="relative">
@@ -459,6 +510,7 @@ export default function DiscoverPage() {
                 </div>
 
                 {/* APY Rates */}
+                {/*
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div className="bg-[var(--background)] rounded-xl p-4">
                     <div className="text-sm text-[var(--text-muted)] mb-1">Supply APY</div>
@@ -471,6 +523,7 @@ export default function DiscoverPage() {
                 </div>
 
                 {/* Market Stats */}
+                {/*
                 <div className="space-y-3 mb-6">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-[var(--text-muted)]">Total Supply</span>
@@ -491,6 +544,7 @@ export default function DiscoverPage() {
                 </div>
 
                 {/* Action Buttons */}
+                {/*
                 <div className="flex gap-3">
                   <button className="flex-1 bg-[var(--primary-accent)] text-white py-3 px-4 rounded-xl font-medium hover:bg-[var(--primary-accent)]/90 transition-colors">
                     Supply
@@ -511,6 +565,7 @@ export default function DiscoverPage() {
             </div>
           )}
         </div>
+        */}
       </div>
     </>
   );

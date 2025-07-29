@@ -4,33 +4,30 @@ import { ethers } from 'ethers';
 import contractService from '../services/contractService';
 import { CROSS_CHAIN_CONFIG } from '../config/contracts';
 
+console.log('✅ useOmniFuse.js loaded (top of file)');
+
 export function useOmniFuse() {
   const { address, isConnected } = useAccount();
-  const { data: walletClient } = useWalletClient();
+  // We'll use a local state for the current chainId for wallet client
+  const [currentChainId, setCurrentChainId] = useState();
+  const { data: walletClient } = useWalletClient(currentChainId ? { chainId: currentChainId } : {});
 
-  // Helper to get ethers.js Signer from walletClient (for legacy contractService)
-  const getSigner = useCallback(async () => {
-    console.log('getSigner called:', { isConnected, address, walletClient });
+  // SSR-safe, defensive getSigner
+  const getSigner = useCallback(async (chainId) => {
+    if (typeof window === 'undefined') {
+      throw new Error('getSigner called on server. Only call this on the client.');
+    }
+    if (!isConnected) {
+      throw new Error('Wallet not connected');
+    }
+    setCurrentChainId(chainId); // update the chainId for useWalletClient
     if (!walletClient) {
       throw new Error('Wallet client not available. Please reconnect your wallet.');
     }
-    
-    try {
-      // For Wagmi v2, we need to create a signer from the wallet client
-      // Since walletClientToSigner is not available, we'll use a different approach
-      if (typeof window !== 'undefined' && window.ethereum) {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const signer = await provider.getSigner();
-        console.log('Created signer from window.ethereum:', signer);
-        return signer;
-      } else {
-        throw new Error('No ethereum provider available');
-      }
-    } catch (e) {
-      console.warn('Failed to create signer:', e);
-      throw new Error('Failed to create signer from wallet client');
-    }
-  }, [walletClient, isConnected, address]);
+    const provider = new ethers.BrowserProvider(walletClient);
+    const signer = await provider.getSigner();
+    return signer;
+  }, [isConnected, walletClient]);
   
   const [userPosition, setUserPosition] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -60,8 +57,9 @@ export function useOmniFuse() {
 
   // Supply assets from EVM to ZetaChain
   const supplyToZeta = useCallback(async (network, assetAddress, amount) => {
-    console.log('supplyToZeta called:', { isConnected, address, walletClient, network, assetAddress, amount });
-    const signer = await getSigner();
+    console.log('🚀 supplyToZeta called:', { network, assetAddress, amount });
+    const chainId = CROSS_CHAIN_CONFIG.CHAIN_IDS[network];
+    const signer = await getSigner(chainId);
     if (!signer || !isConnected) {
       throw new Error('Wallet not connected');
     }
@@ -95,11 +93,13 @@ export function useOmniFuse() {
     } finally {
       setIsLoading(false);
     }
-  }, [isConnected, loadUserPosition]);
+  }, [isConnected, loadUserPosition, getSigner]);
 
   // Borrow assets from ZetaChain to EVM
-  const borrowCrossChain = useCallback(async (assetAddress, amount, destChainId) => {
-    const signer = await getSigner();
+  const borrowCrossChain = useCallback(async (assetAddress, amount, destChainId, network) => {
+    console.log('🚀 borrowCrossChain called:', { assetAddress, amount, destChainId, network });
+    const chainId = CROSS_CHAIN_CONFIG.CHAIN_IDS[network];
+    const signer = await getSigner(chainId);
     if (!signer || !isConnected) {
       throw new Error('Wallet not connected');
     }
@@ -133,11 +133,13 @@ export function useOmniFuse() {
     } finally {
       setIsLoading(false);
     }
-  }, [isConnected, loadUserPosition]);
+  }, [isConnected, loadUserPosition, getSigner]);
 
   // Repay assets from EVM to ZetaChain
   const repayToZeta = useCallback(async (network, assetAddress, amount) => {
-    const signer = await getSigner();
+    console.log('🚀 repayToZeta called:', { network, assetAddress, amount });
+    const chainId = CROSS_CHAIN_CONFIG.CHAIN_IDS[network];
+    const signer = await getSigner(chainId);
     if (!signer || !isConnected) {
       throw new Error('Wallet not connected');
     }
@@ -171,11 +173,13 @@ export function useOmniFuse() {
     } finally {
       setIsLoading(false);
     }
-  }, [isConnected, loadUserPosition]);
+  }, [isConnected, loadUserPosition, getSigner]);
 
   // Withdraw assets from ZetaChain to EVM
-  const withdrawCrossChain = useCallback(async (assetAddress, amount, destChainId) => {
-    const signer = await getSigner();
+  const withdrawCrossChain = useCallback(async (assetAddress, amount, destChainId, network) => {
+    console.log('🚀 withdrawCrossChain called:', { assetAddress, amount, destChainId, network });
+    const chainId = CROSS_CHAIN_CONFIG.CHAIN_IDS[network];
+    const signer = await getSigner(chainId);
     if (!signer || !isConnected) {
       throw new Error('Wallet not connected');
     }
@@ -209,7 +213,7 @@ export function useOmniFuse() {
     } finally {
       setIsLoading(false);
     }
-  }, [isConnected, loadUserPosition]);
+  }, [isConnected, loadUserPosition, getSigner]);
 
   // Get token balance
   const getTokenBalance = useCallback(async (tokenAddress, network) => {
@@ -254,7 +258,9 @@ export function useOmniFuse() {
 
   // Set vault address in executor (admin function)
   const setVaultAddress = useCallback(async (network, vaultAddress) => {
-    const signer = await getSigner();
+    console.log('🚀 setVaultAddress called:', { network, vaultAddress });
+    const chainId = CROSS_CHAIN_CONFIG.CHAIN_IDS[network];
+    const signer = await getSigner(chainId);
     if (!signer || !isConnected) {
       throw new Error('Wallet not connected');
     }
@@ -278,7 +284,7 @@ export function useOmniFuse() {
     } finally {
       setIsLoading(false);
     }
-  }, [isConnected]);
+  }, [isConnected, getSigner]);
 
   // Clear error
   const clearError = useCallback(() => {
@@ -306,6 +312,9 @@ export function useOmniFuse() {
     return () => clearInterval(interval);
   }, [isConnected, loadUserPosition]);
 
+  // Add canTransact for UI
+  const canTransact = isConnected;
+
   return {
     // State
     userPosition,
@@ -331,5 +340,6 @@ export function useOmniFuse() {
     // Configuration
     chainIds: CROSS_CHAIN_CONFIG.CHAIN_IDS,
     defaultGasLimits: CROSS_CHAIN_CONFIG.DEFAULT_GAS_LIMITS,
+    canTransact,
   };
 } 

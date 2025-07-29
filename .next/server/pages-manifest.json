@@ -1,1 +1,9 @@
-{"/admin":"pages/admin.html","/_app":"pages/_app.js","/_error":"pages/_error.js","/discover":"pages/discover.html","/dashboard":"pages/dashboard.html","/manage":"pages/manage.html","/portfolio":"pages/portfolio.html","/":"pages/index.html","/_document":"pages/_document.js","/404":"pages/404.html"}
+{
+  "/_app": "pages/_app.js",
+  "/_error": "pages/_error.js",
+  "/_document": "pages/_document.js",
+  "/dashboard": "pages/dashboard.js",
+  "/earn": "pages/earn.js",
+  "/manage": "pages/manage.js",
+  "/portfolio": "pages/portfolio.js"
+}
