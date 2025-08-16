@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../components/ThemeProvider';
-import LandingHeader from '../components/LandingHeader';
-import { useAccount } from 'wagmi';
-import { useOmniFuse } from '../hooks/useOmniFuse';
+import { useAccount, useDisconnect } from 'wagmi';
 import { ethers } from 'ethers';
+import { formatHealthFactor } from '../utils/format';
+import LandingHeader from '../components/LandingHeader';
+import { useOmniFuse } from '../hooks/useOmniFuse';
 import AssetNetworkSelector from '../components/AssetNetworkSelector';
 
 // Helper function to format user portfolio data
@@ -256,7 +257,7 @@ export default function DashboardPage() {
                           portfolio.healthFactor > 1.5 ? 'text-green-500' : 
                           portfolio.healthFactor > 1.2 ? 'text-yellow-500' : 'text-red-500'
                         }`}>
-                          {isLoading ? '...' : portfolio.healthFactor.toFixed(2)}
+                          {isLoading ? '...' : formatHealthFactor(portfolio.healthFactor)}
                         </div>
                       </div>
                     </>
@@ -481,7 +482,9 @@ export default function DashboardPage() {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-[var(--text-muted)]">Health Factor</span>
-                    <span className="font-medium text-green-500">{userPosition?.healthFactor}</span>
+                    <span className="font-medium text-green-500">
+                      {userPosition ? formatHealthFactor(userPosition.healthFactor) : 'N/A'}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-[var(--text-muted)]">Liquidation Risk</span>

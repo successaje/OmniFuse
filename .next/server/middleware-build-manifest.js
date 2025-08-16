@@ -24,15 +24,10 @@ self.__BUILD_MANIFEST = {
       "static/chunks/main.js",
       "static/chunks/pages/dashboard.js"
     ],
-    "/earn": [
+    "/discover": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
-      "static/chunks/pages/earn.js"
-    ],
-    "/manage": [
-      "static/chunks/webpack.js",
-      "static/chunks/main.js",
-      "static/chunks/pages/manage.js"
+      "static/chunks/pages/discover.js"
     ],
     "/portfolio": [
       "static/chunks/webpack.js",

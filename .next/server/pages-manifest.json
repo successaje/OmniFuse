@@ -2,8 +2,7 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
+  "/portfolio": "pages/portfolio.js",
   "/dashboard": "pages/dashboard.js",
-  "/earn": "pages/earn.js",
-  "/manage": "pages/manage.js",
-  "/portfolio": "pages/portfolio.js"
+  "/discover": "pages/discover.js"
 }
