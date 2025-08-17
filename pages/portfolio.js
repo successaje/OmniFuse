@@ -153,7 +153,7 @@ export default function PortfolioPage() {
         result = await withdrawCrossChain(
           modal.position.assetAddress,
           amount,
-          modal.position.chainId // You may need to map chain name to chainId
+          modal.position.chainId // TODO: Might need to map chain name to chainId
         );
       } else if (modal.action === 'repay') {
         result = await repayToZeta(

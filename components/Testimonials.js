@@ -2,13 +2,13 @@ import React from 'react';
 
 const testimonials = [
   {
-    name: 'Alice',
-    avatar: '/avatars/alice.png',
+    name: 'Tobi',
+    avatar: '/avatars/tobi.png',
     quote: 'OmniFuse made cross-chain lending so easy. No bridges, no headaches!'
   },
   {
-    name: 'Bob',
-    avatar: '/avatars/bob.png',
+    name: 'Sade',
+    avatar: '/avatars/sade.png',
     quote: 'I love earning yield on Avalanche and BSC without switching networks.'
   },
   {
@@ -20,8 +20,8 @@ const testimonials = [
 
 const partners = [
   { name: 'ZetaChain', logo: '/logos/zetachain.png' },
-  { name: 'Chainlink', logo: '/logos/chainlink.png' },
-  { name: 'CertiK', logo: '/logos/certik.png' }
+  { name: 'Base', logo: '/logos/base.png' },
+  { name: 'Aave', logo: '/logos/aave.png' }
 ];
 
 export default function Testimonials() {

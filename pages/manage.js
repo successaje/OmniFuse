@@ -1221,7 +1221,7 @@ export default function ManagePage() {
                   onClick={() => handleCrossChainAction('borrow', {
                     assetAddress: assetNetworkSelection.asset?.erc20?.address || assetNetworkSelection.asset?.zrc20?.address,
                     amount: amount,
-                    destChainId: assetNetworkSelection.network // You may need to map network name to chainId
+                    destChainId: assetNetworkSelection.network // TODO: Might need to map network name to chainId
                   })}
                 >
                   {isLoading ? 'Processing...' : 'Borrow Assets'}

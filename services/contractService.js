@@ -319,17 +319,50 @@ class ContractService {
   async getUserPosition(userAddress) {
     try {
       const vault = this.getContract('ZETA_TESTNET', 'OMNIVAULT');
+      // Use the view exposed in OMNIVAULT_ABI: getCrossChainPosition(address)
       const position = await vault.getCrossChainPosition(userAddress);
-      
+      const [collateralUsd, debtUsd, hf] = position;
       return {
-        collateralUsd: position[0].toString(),
-        debtUsd: position[1].toString(),
-        healthFactor: position[2].toString()
+        collateralUsd,
+        debtUsd,
+        healthFactor: hf
       };
     } catch (error) {
-      console.error('Failed to get user position:', error);
-      return null;
+      console.error('Error fetching user position:', error);
+      throw error;
     }
+  }
+
+  // Get all user positions across all assets (placeholder)
+  // The current OmniVault ABI does not expose per-reserve getters here.
+  // Return an empty list to avoid frontend crashes. We can enrich this via events later.
+  async getUserPositions(userAddress) {
+    try {
+      void userAddress;
+      return [];
+    } catch (error) {
+      console.error('Error fetching user positions:', error);
+      return [];
+    }
+  }
+  
+  // Helper to get asset details (implement based on your contract)
+  async getAssetDetails(assetAddress) {
+    // This is a placeholder - implement based on your contract
+    // You might want to use a mapping of asset addresses to their details
+    const assetMap = {
+      // Example - replace with actual addresses and details
+      '0x123...': { symbol: 'USDC', name: 'USD Coin', decimals: 6, chain: 'Ethereum' },
+      '0x456...': { symbol: 'ETH', name: 'Ethereum', decimals: 18, chain: 'Ethereum' },
+      // Add more assets as needed
+    };
+    
+    return assetMap[assetAddress.toLowerCase()] || { 
+      symbol: 'UNKNOWN', 
+      name: 'Unknown Asset', 
+      decimals: 18, 
+      chain: 'ZetaChain' 
+    };
   }
 
   // Get asset price from OmniVault
@@ -370,6 +403,189 @@ class ContractService {
       console.error('Failed to check liquidation status:', error);
       return false;
     }
+  }
+
+  // Get transaction history from contract events
+  async getTransactionHistory(userAddress, fromBlock = 0, toBlock = 'latest') {
+    try {
+      const vault = this.getContract('ZETA_TESTNET', 'OMNIVAULT');
+      
+      // Fetch all relevant events with user filter
+      const supplyEvents = await vault.queryFilter(vault.filters.Supply(userAddress), fromBlock, toBlock);
+      const borrowEvents = await vault.queryFilter(vault.filters.Borrow(userAddress), fromBlock, toBlock);
+      const repayEvents = await vault.queryFilter(vault.filters.Repay(userAddress), fromBlock, toBlock);
+      const withdrawEvents = await vault.queryFilter(vault.filters.Withdraw(userAddress), fromBlock, toBlock);
+      const liquidateEvents = await vault.queryFilter(vault.filters.Liquidate(userAddress), fromBlock, toBlock);
+      
+      // Combine all events
+      const allEvents = [
+        ...supplyEvents.map(e => ({ ...e, type: 'supply' })),
+        ...borrowEvents.map(e => ({ ...e, type: 'borrow' })),
+        ...repayEvents.map(e => ({ ...e, type: 'repay' })),
+        ...withdrawEvents.map(e => ({ ...e, type: 'withdraw' })),
+        ...liquidateEvents.map(e => ({ ...e, type: 'liquidate' }))
+      ];
+      
+      console.log(`Found ${allEvents.length} transactions for user ${userAddress}`);
+      
+      // Sort events by block number and transaction index
+      const sortedEvents = allEvents.sort((a, b) => {
+        if (a.blockNumber === b.blockNumber) {
+          return a.transactionIndex - b.transactionIndex;
+        }
+        return a.blockNumber - b.blockNumber;
+      });
+      
+      // Process events in batches to avoid rate limiting
+      const batchSize = 10;
+      const transactions = [];
+      
+      for (let i = 0; i < sortedEvents.length; i += batchSize) {
+        const batch = sortedEvents.slice(i, i + batchSize);
+        const batchTransactions = await Promise.all(batch.map(async (event) => {
+          try {
+            const { event: eventName, args, transactionHash, blockNumber, type } = event;
+            const { asset, amount, originChainId, destChainId } = args || {};
+            
+            // Get block with timestamp
+            const block = await this.getProvider('ZETA_TESTNET').getBlock(blockNumber);
+            
+            const baseTx = {
+              id: transactionHash,
+              type: type,
+              txHash: transactionHash,
+              timestamp: new Date(block.timestamp * 1000).toISOString(),
+              status: 'completed'
+            };
+            
+            switch (type) {
+              case 'supply':
+                return {
+                  ...baseTx,
+                  asset: asset,
+                  chain: this.getChainName(originChainId?.toNumber() || 0),
+                  amount: ethers.formatUnits(amount, 18)
+                };
+              case 'borrow':
+                return {
+                  ...baseTx,
+                  asset: asset,
+                  chain: this.getChainName(destChainId?.toNumber() || 0),
+                  amount: ethers.formatUnits(amount, 18)
+                };
+              case 'repay':
+                return {
+                  ...baseTx,
+                  asset: asset,
+                  chain: this.getChainName(originChainId?.toNumber() || 0),
+                  amount: ethers.formatUnits(amount, 18)
+                };
+              case 'withdraw':
+                return {
+                  ...baseTx,
+                  asset: asset,
+                  chain: this.getChainName(destChainId?.toNumber() || 0),
+                  amount: ethers.formatUnits(amount, 18)
+                };
+              case 'liquidate':
+                return {
+                  ...baseTx,
+                  asset: args.debtAsset,
+                  chain: this.getChainName(args.targetChainId?.toNumber() || 0),
+                  amount: '0', // Amount not directly available in event
+                  isLiquidation: true
+                };
+              default:
+                return null;
+            }
+          } catch (error) {
+            console.error('Error processing transaction:', error);
+            return null;
+          }
+        }));
+        
+        transactions.push(...batchTransactions.filter(tx => tx !== null));
+        
+        // Small delay between batches to avoid rate limiting
+        if (i + batchSize < sortedEvents.length) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+      
+      // Filter out nulls and sort by timestamp (newest first)
+      return transactions
+        .filter(tx => tx !== null)
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    } catch (error) {
+      console.error('Failed to fetch transaction history:', error);
+      return [];
+    }
+  }
+  
+  // Helper function to get chain name from chain ID
+  getChainName(chainId) {
+    const chainMap = {
+      1: 'Ethereum',
+      56: 'BNB Chain',
+      137: 'Polygon',
+      43114: 'Avalanche',
+      42161: 'Arbitrum',
+      10: 'Optimism',
+      250: 'Fantom',
+      100: 'Gnosis',
+      1284: 'Moonbeam',
+      42220: 'Celo',
+      1313161554: 'Aurora',
+      1666600000: 'Harmony',
+      25: 'Cronos',
+      1285: 'Moonriver',
+      199: 'BitTorrent',
+      122: 'Fuse',
+      40: 'Telos',
+      128: 'Heco',
+      66: 'OKX',
+      10000: 'SmartBCH',
+      32659: 'Fusion',
+      88: 'TomoChain',
+      30: 'RSK',
+      70: 'Hoo',
+      333999: 'Polyjuice',
+      108: 'ThunderCore',
+      1284: 'Moonbeam',
+      592: 'Astar',
+      336: 'Shiden',
+      4689: 'IoTeX',
+      246: 'Energy Web',
+      50: 'XDC',
+      333999: 'Polyjuice',
+      1001: 'Klaytn Testnet',
+      80001: 'Mumbai',
+      97: 'BSC Testnet',
+      5: 'Goerli',
+      420: 'Optimism Goerli',
+      421613: 'Arbitrum Goerli',
+      43113: 'Fuji',
+      4002: 'Fantom Testnet',
+      44787: 'Celo Alfajores',
+      80001: 'Mumbai',
+      1442: 'Polygon zkEVM Testnet',
+      280: 'zkSync Era Testnet',
+      5001: 'Mantle Testnet',
+      84531: 'Base Goerli',
+      59140: 'Linea Testnet',
+      534351: 'Scroll Testnet',
+      5000: 'Mantle',
+      1101: 'Polygon zkEVM',
+      324: 'zkSync Era',
+      204: 'opBNB',
+      59144: 'Linea',
+      534352: 'Scroll',
+      7777777: 'Zora',
+      10: 'Optimism',
+      8453: 'Base',
+      7000: 'ZetaChain',
+    };
+    return chainMap[chainId] || `Chain ${chainId}`;
   }
 
   // Set vault address in executor (admin function)

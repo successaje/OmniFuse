@@ -4,23 +4,23 @@ const posts = [
   {
     title: 'OmniFuse Launches on ZetaChain',
     summary: 'We are live! Supply and borrow assets cross-chain with no bridges required.',
-    date: '2024-06-10',
+    date: '2025-07-10',
     link: '/blog/launch',
     image: '/blog/launch.png'
   },
   {
     title: 'How Cross-Chain Lending Works',
     summary: 'A deep dive into the tech behind seamless cross-chain DeFi.',
-    date: '2024-06-05',
+    date: '2025-08-05',
     link: '/blog/cross-chain-lending',
     image: '/blog/crosschain.png'
   },
   {
-    title: 'OmniFuse Integrates Chainlink Oracles',
+    title: 'OmniFuse Integrates Pyth Oracles',
     summary: 'Bringing secure price feeds to all supported chains.',
-    date: '2024-05-28',
-    link: '/blog/chainlink',
-    image: '/blog/chainlink.png'
+    date: '2025-07-28',
+    link: '/blog/Pyth',
+    image: '/blog/Pyth.png'
   }
 ];
 

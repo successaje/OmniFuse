@@ -22,9 +22,9 @@ export function formatHealthFactor(hf) {
   
   const number = typeof hf === 'string' ? parseFloat(hf) : hf;
   
-  // If it's the max uint256 value, return '∞' (infinite)
+  // If it's the max uint256 value or very large number (indicating 0 debt), return '∞'
   const maxUint256 = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
-  if (hf.toString() === maxUint256) {
+  if (hf.toString() === maxUint256 || number > 1e10) {
     return '∞';
   }
   
