@@ -555,23 +555,48 @@ export default function Dashboard() {
       const allTxs = await fetchAllTransactions(address);
       
       // Process and format transactions
-      const formattedTxs = allTxs.map(tx => ({
-        id: tx.hash,
-        type: tx.from.toLowerCase() === address.toLowerCase() ? 'send' : 'receive',
-        asset: tx.tokenSymbol || tx.nativeCurrency || 'ETH',
-        chain: tx.chain,
-        icon: getAssetIcon(tx.tokenSymbol || tx.nativeCurrency || 'ETH'),
-        chainIcon: getChainIcon(tx.chain),
-        amount: tx.value ? ethers.formatUnits(tx.value, tx.tokenDecimal || 18) : '0',
-        timestamp: tx.timestamp ? new Date(tx.timestamp).toISOString() : new Date().toISOString(),
-        status: tx.status || 'success',
-        txHash: tx.hash,
-        explorerUrl: tx.explorerUrl,
-        from: tx.from,
-        to: tx.to
-      }));
+      const formattedTxs = allTxs.map(tx => {
+        // Determine if this is a send or receive transaction
+        const isSend = tx.from?.toLowerCase() === address.toLowerCase();
+        const amount = tx.value ? ethers.formatUnits(tx.value, tx.tokenDecimal || 18) : '0';
+        const asset = tx.tokenSymbol || tx.nativeCurrency || 'ETH';
+        
+        // Get chain name from config or use the one from the transaction
+        let chainName = tx.chain;
+        if (tx.chainId) {
+          const chainConfig = Object.values(EXPLORER_APIS).find(c => c.chainId === tx.chainId);
+          if (chainConfig) {
+            chainName = chainConfig.name;
+          }
+        }
+        
+        return {
+          id: tx.hash,
+          type: isSend ? 'send' : 'receive',
+          asset: asset,
+          chain: chainName,
+          icon: getAssetIcon(asset),
+          chainIcon: getChainIcon(chainName),
+          amount: amount,
+          timestamp: tx.timestamp ? new Date(tx.timestamp).toISOString() : new Date().toISOString(),
+          status: tx.status || 'success',
+          txHash: tx.hash,
+          explorerUrl: tx.explorerUrl,
+          from: tx.from,
+          to: tx.to,
+          // Add additional metadata
+          nativeAmount: tx.nativeValue ? ethers.formatUnits(tx.nativeValue, 18) : amount,
+          nativeCurrency: tx.nativeCurrency || 'ETH',
+          tokenDecimal: tx.tokenDecimal || 18
+        };
+      });
       
-      setTransactions(formattedTxs);
+      // Sort by timestamp in descending order (newest first)
+      const sortedTxs = formattedTxs.sort((a, b) => 
+        new Date(b.timestamp) - new Date(a.timestamp)
+      );
+      
+      setTransactions(sortedTxs);
     } catch (err) {
       console.error('Error fetching transactions:', err);
       // Fallback to mock data in case of error

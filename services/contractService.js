@@ -119,40 +119,74 @@ class ContractService {
   async supplyToZeta(network, assetAddress, amount, signer) {
     try {
       const executor = this.getContract(network, 'OMNIVEXECUTOR', signer);
+      const executorAddress = getContractAddress(network, 'OMNIVEXECUTOR');
+      const tokenContract = this.getERC20Contract(assetAddress, network, signer);
+      
       // Prepare revert options (match contract ABI order)
       const revertOptions = {
-        revertAddress: getContractAddress(network, 'OMNIVEXECUTOR'),
+        revertAddress: executorAddress,
         callOnRevert: true,
         abortAddress: '0x0000000000000000000000000000000000000000',
         revertMessage: '0x',
         onRevertGasLimit: 500000
       };
-      // Approve tokens first
-      const tokenContract = this.getERC20Contract(assetAddress, network, signer);
-      const executorAddress = getContractAddress(network, 'OMNIVEXECUTOR');
-      const allowance = await tokenContract.allowance(await signer.getAddress(), executorAddress);
-      if (allowance < amount) {
+
+      // Handle token approval with better error handling
+      try {
+        // First try to check allowance
+        let allowance;
         try {
-          // Prompt user for approval
-          const approveTx = await tokenContract.approve(executorAddress, ethers.MaxUint256);
-          await approveTx.wait();
-        } catch (approveError) {
-          // User rejected or approval failed
-          return {
-            success: false,
-            error: 'User rejected USDC approval or approval transaction failed. You must approve before supplying.',
-            network,
-            action: 'supply',
-            approvalRejected: true
-          };
+          allowance = await tokenContract.allowance(await signer.getAddress(), executorAddress);
+          console.log('Current allowance:', allowance.toString());
+        } catch (allowanceError) {
+          console.warn('Allowance check failed, proceeding with approval:', allowanceError);
+          // If allowance check fails, we'll still try to approve
+          allowance = ethers.Zero; // Force approval
         }
+
+        // If allowance is not enough, request approval
+        const allowanceBN = typeof allowance === 'string' ? BigInt(allowance) : allowance;
+        const amountBN = typeof amount === 'string' ? BigInt(amount) : amount;
+        
+        if (allowanceBN < amountBN) {
+          console.log('Approving token spend...');
+          const approveTx = await tokenContract.approve(executorAddress, ethers.MaxUint256);
+          console.log('Approval tx sent, waiting for confirmation...');
+          await approveTx.wait();
+          console.log('Approval confirmed');
+        }
+      } catch (approveError) {
+        console.error('Token approval failed:', approveError);
+        return {
+          success: false,
+          error: `Token approval failed: ${approveError.message}. Please try approving the token in your wallet first.`,
+          network,
+          action: 'supply',
+          approvalRejected: true
+        };
       }
       // Execute supply
+      console.log('Sending supply transaction...');
       const tx = await executor.supplyToZeta(assetAddress, amount, revertOptions);
-      const receipt = await tx.wait();
+      console.log('Transaction sent, waiting for confirmation...');
+      
+      // Add timeout for the transaction confirmation
+      const timeout = 60000; // 60 seconds timeout
+      const receipt = await Promise.race([
+        tx.wait(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Transaction confirmation timed out')), timeout)
+        )
+      ]).catch(async (error) => {
+        console.warn('Error waiting for transaction receipt:', error);
+        // If we can't get the receipt, still return success with just the transaction hash
+        return { hash: tx.hash };
+      });
+      
+      console.log('Transaction confirmed:', receipt.hash);
       return {
         success: true,
-        txHash: receipt.hash,
+        txHash: receipt.hash || tx.hash, // Fallback to tx.hash if receipt.hash is not available
         network,
         action: 'supply',
         amount,

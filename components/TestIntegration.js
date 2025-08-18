@@ -18,8 +18,8 @@ export default function TestIntegration() {
   } = useOmniFuse();
 
   const [testAmount, setTestAmount] = useState('1');
-  const [testAsset, setTestAsset] = useState('0x236b0de675cc8f46ae186897fccefe3370c9eded'); // Example USDC address
-  const [testNetwork, setTestNetwork] = useState('BASE_SEPOLIA');
+  const [testAsset, setTestAsset] = useState('0x5425890298aed601595a70AB815c96711a31Bc65'); 
+  const [testNetwork, setTestNetwork] = useState('AVALANCHE_FUJI');
   const [testResults, setTestResults] = useState([]);
 
   const addTestResult = (action, result) => {
