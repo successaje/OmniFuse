@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTheme } from '../components/ThemeProvider';
 import { useAccount, useDisconnect } from 'wagmi';
 import { ethers } from 'ethers';
@@ -7,7 +7,14 @@ import LandingHeader from '../components/LandingHeader';
 import { useOmniFuse } from '../hooks/useOmniFuse';
 import AssetNetworkSelector from '../components/AssetNetworkSelector';
 import { contractService } from '../services/contractService';
-import { fetchTransactionsByAddress } from '../utils/explorerApi';
+import { fetchAllTransactions } from '../utils/blockExplorerApi';
+import dynamic from 'next/dynamic';
+
+// Dynamically import PortfolioChart with no SSR to avoid window is not defined errors
+const PortfolioChart = dynamic(
+  () => import('../components/PortfolioChart'),
+  { ssr: false }
+);
 
 // Helper function to format user portfolio data
 const formatUserPortfolio = (userPosition, positions = []) => {
@@ -222,19 +229,24 @@ const getChainIcon = (chain) => {
 
 // Format lending positions from contract data
 const formatLendingPositions = (positions = []) => {
-  return positions.map((position, index) => ({
-    id: `${position.asset}-${position.chain}-${index}`,
-    asset: position.asset,
-    chain: position.chain,
-    icon: getAssetIcon(position.asset),
-    chainIcon: getChainIcon(position.chain),
-    supplied: position.supplied,
-    borrowed: position.borrowed,
-    apy: position.apy || 0,
-    value: position.value || 0,
-    utilization: position.utilization || 0,
-    isCrossChain: true
-  }));
+  return positions.map((position, index) => {
+    // Ensure value is a number for the chart
+    const value = typeof position.value === 'number' ? position.value : 0;
+    
+    return {
+      id: `${position.asset}-${position.chain}-${index}`,
+      asset: position.asset,
+      chain: position.chain,
+      icon: getAssetIcon(position.asset),
+      chainIcon: getChainIcon(position.chain),
+      supplied: position.supplied || 0,
+      borrowed: position.borrowed || 0,
+      apy: position.apy || 0,
+      value: value,
+      utilization: position.utilization || 0,
+      isCrossChain: true
+    };
+  });
 };
 
 // Initial empty positions
@@ -368,14 +380,46 @@ const formatNumber = (num) => {
   return `$${num.toLocaleString()}`;
 };
 
-const formatDate = (dateString) => {
+// Format date to relative time (e.g., "2 hours ago")
+const formatTimeAgo = (dateString) => {
+  if (!dateString) return 'N/A';
+  
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
+  const now = new Date();
+  const seconds = Math.floor((now - date) / 1000);
+  
+  const intervals = {
+    year: 31536000,
+    month: 2592000,
+    week: 604800,
+    day: 86400,
+    hour: 3600,
+    minute: 60,
+    second: 1
+  };
+  
+  for (const [unit, secondsInUnit] of Object.entries(intervals)) {
+    const interval = Math.floor(seconds / secondsInUnit);
+    if (interval >= 1) {
+      return interval === 1 ? `1 ${unit} ago` : `${interval} ${unit}s ago`;
+    }
+  }
+  
+  return 'just now';
+};
+
+// Format date to readable format
+const formatDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  
+  const date = new Date(dateString);
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
-  });
+  }).format(date);
 };
 
 export default function Dashboard() {
@@ -400,6 +444,36 @@ export default function Dashboard() {
     activePositions: 0,
     chains: []
   });
+
+  // Prepare chart data from lending positions
+  const chartData = useMemo(() => {
+    if (!lendingPositions || lendingPositions.length === 0) return [];
+    
+    // Group by asset and sum values
+    const assetMap = new Map();
+    
+    lendingPositions.forEach(position => {
+      if (!position.asset || position.value <= 0) return;
+      
+      const assetName = position.asset.split('.')[0]; // Remove chain suffix if present
+      const value = typeof position.value === 'number' ? position.value : 0;
+      
+      if (assetMap.has(assetName)) {
+        assetMap.set(assetName, assetMap.get(assetName) + value);
+      } else {
+        assetMap.set(assetName, value);
+      }
+    });
+    
+    // Convert to array and sort by value (descending)
+    return Array.from(assetMap.entries())
+      .map(([name, value]) => ({
+        name,
+        value,
+        total: Array.from(assetMap.values()).reduce((a, b) => a + b, 0)
+      }))
+      .sort((a, b) => b.value - a.value);
+  }, [lendingPositions]);
 
   // Fetch user position and lending positions
   useEffect(() => {
@@ -426,7 +500,12 @@ export default function Dashboard() {
         const userPosition = await contractService.getUserPosition(address);
         
         // Fetch user's lending positions
-        const positions = await contractService.getUserPositions(address);
+        let positions = await contractService.getUserPositions(address);
+        
+        // If no positions from contract, use mock data
+        if (!positions || positions.length === 0) {
+          positions = initialLendingPositions;
+        }
         
         // Format positions
         const formattedPositions = formatLendingPositions(positions);
@@ -436,7 +515,17 @@ export default function Dashboard() {
         setPortfolio(formatUserPortfolio(userPosition, positions));
       } catch (err) {
         console.error('Error fetching portfolio data:', err);
-        setError('Failed to load portfolio data. Please try again later.');
+        // Fallback to mock data on error
+        setLendingPositions(initialLendingPositions);
+        setPortfolio({
+          totalValue: 100000,
+          totalBorrowed: 40000,
+          netWorth: 60000,
+          healthFactor: 1.8,
+          activePositions: 3,
+          chains: ['Ethereum', 'Base', 'Avalanche', 'ZetaChain', 'BNB Chain', 'Solana']
+        });
+        setError('Using demo data. Live data unavailable.');
       } finally {
         setIsLoading(false);
       }
@@ -454,7 +543,7 @@ export default function Dashboard() {
   // Track if component is mounted
   const [mounted, setMounted] = useState(false);
   
-  // Fetch transactions from ZetaChain testnet
+  // Fetch transactions from all supported chains
   const fetchTransactions = async () => {
     if (!address) {
       setTransactions([]);
@@ -463,8 +552,26 @@ export default function Dashboard() {
     
     try {
       setIsLoadingTxs(true);
-      const txs = await fetchTransactionsByAddress(address);
-      setTransactions(txs);
+      const allTxs = await fetchAllTransactions(address);
+      
+      // Process and format transactions
+      const formattedTxs = allTxs.map(tx => ({
+        id: tx.hash,
+        type: tx.from.toLowerCase() === address.toLowerCase() ? 'send' : 'receive',
+        asset: tx.tokenSymbol || tx.nativeCurrency || 'ETH',
+        chain: tx.chain,
+        icon: getAssetIcon(tx.tokenSymbol || tx.nativeCurrency || 'ETH'),
+        chainIcon: getChainIcon(tx.chain),
+        amount: tx.value ? ethers.formatUnits(tx.value, tx.tokenDecimal || 18) : '0',
+        timestamp: tx.timestamp ? new Date(tx.timestamp).toISOString() : new Date().toISOString(),
+        status: tx.status || 'success',
+        txHash: tx.hash,
+        explorerUrl: tx.explorerUrl,
+        from: tx.from,
+        to: tx.to
+      }));
+      
+      setTransactions(formattedTxs);
     } catch (err) {
       console.error('Error fetching transactions:', err);
       // Fallback to mock data in case of error
@@ -630,12 +737,8 @@ export default function Dashboard() {
               {/* Portfolio Chart */}
               <div className="lg:col-span-2 bg-[var(--card-bg)] rounded-2xl p-6 border border-[#23272F]/10">
                 <h3 className="text-xl font-bold font-orbitron mb-4">Portfolio Overview</h3>
-                <div className="h-64 bg-[var(--background)] rounded-xl flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="text-4xl mb-2">📊</div>
-                    <div className="text-[var(--text-muted)]">Portfolio Chart</div>
-                    <div className="text-sm text-[var(--text-muted)]">Coming Soon</div>
-                  </div>
+                <div className="h-80 rounded-xl bg-[var(--card-bg)]">
+                  <PortfolioChart data={chartData} />
                 </div>
               </div>
 
@@ -747,76 +850,104 @@ export default function Dashboard() {
           {activeTab === 'transactions' && (
             <div className="space-y-6">
               <h3 className="text-xl font-bold font-orbitron">Recent Transactions</h3>
-              
               <div className="bg-[var(--card-bg)] rounded-2xl border border-[#23272F]/10 overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-[var(--background)]">
+                  <table className="min-w-full divide-y divide-gray-700">
+                    <thead className="bg-gray-800">
                       <tr>
-                        <th className="px-6 py-4 text-left text-sm font-medium text-[var(--text-muted)]">Type</th>
-                        <th className="px-6 py-4 text-left text-sm font-medium text-[var(--text-muted)]">Asset</th>
-                        <th className="px-6 py-4 text-left text-sm font-medium text-[var(--text-muted)]">Chain</th>
-                        <th className="px-6 py-4 text-left text-sm font-medium text-[var(--text-muted)]">Amount</th>
-                        <th className="px-6 py-4 text-left text-sm font-medium text-[var(--text-muted)]">Date</th>
-                        <th className="px-6 py-4 text-left text-sm font-medium text-[var(--text-muted)]">Status</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Type</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Asset</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Amount</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Chain</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Time</th>
+                        <th scope="col" className="relative px-4 py-3">
+                          <span className="sr-only">View</span>
+                        </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#23272F]/10">
-                      {isLoadingTxs ? (
-                        <tr>
-                          <td colSpan="6" className="px-6 py-8 text-center">
-                            <div className="flex flex-col items-center justify-center">
-                              <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-2"></div>
-                              <span className="text-[var(--text-muted)]">Loading transactions...</span>
-                            </div>
-                          </td>
-                        </tr>
-                      ) : transactions && transactions.length > 0 ? (
-                        transactions.map((tx) => (
-                          <tr key={tx.id} className="hover:bg-[var(--background)]/50">
-                            <td className="px-6 py-4">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                tx.type === 'receive' ? 'bg-green-500/10 text-green-500' :
-                                tx.type === 'send' ? 'bg-red-500/10 text-red-500' :
-                                tx.type === 'contract' ? 'bg-blue-500/10 text-blue-500' :
-                                'bg-gray-500/10 text-gray-500'
-                              }`}>
-                                {tx.type?.toUpperCase?.() || 'TRANSACTION'}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 font-medium">
-                              <div className="flex items-center gap-2">
-                                <span>{tx.amount > 0 ? formatNumber(tx.amount) : '0'}</span>
-                                <span className="text-[var(--text-muted)]">{tx.asset || 'ZETA'}</span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 text-[var(--text-muted)]">
-                              {tx.chain || 'ZetaChain'}
-                            </td>
-                            <td className="px-6 py-4 font-medium">
-                              {tx.from?.toLowerCase() === address?.toLowerCase() ? 'Outgoing' : 'Incoming'}
-                            </td>
-                            <td className="px-6 py-4 text-[var(--text-muted)] whitespace-nowrap">
-                              {tx.timestamp ? new Date(tx.timestamp).toLocaleString() : 'N/A'}
-                            </td>
-                            <td className="px-6 py-4">
-                              {tx.txHash ? (
+                    <tbody className="bg-gray-800 divide-y divide-gray-700">
+                      {transactions && transactions.length > 0 ? (
+                        transactions.slice(0, 10).map((tx) => {
+                          const isSend = tx.type === 'send';
+                          const amount = parseFloat(tx.amount).toFixed(4);
+                          const timeAgo = formatTimeAgo(tx.timestamp);
+                          return (
+                            <tr key={tx.id} className="hover:bg-gray-750 transition-colors">
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <div className="flex items-center">
+                                  <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center ${isSend ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
+                                    {isSend ? '↑' : '↓'}
+                                  </div>
+                                  <div className="ml-2">
+                                    <div className="text-sm font-medium text-gray-100 capitalize">
+                                      {isSend ? 'Sent' : 'Received'}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <div className="flex items-center">
+                                  <img 
+                                    className="h-6 w-6 rounded-full" 
+                                    src={tx.icon} 
+                                    alt={tx.asset} 
+                                    onError={(e) => {
+                                      e.target.onerror = null;
+                                      e.target.src = '/logos/ethereum-eth-logo.png';
+                                    }} 
+                                  />
+                                  <div className="ml-2">
+                                    <div className="text-sm font-medium text-gray-100">{tx.asset}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <div className={`text-sm font-medium ${isSend ? 'text-red-400' : 'text-green-400'}`}>
+                                  {isSend ? '-' : '+'}{amount} {tx.asset}
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  ${(amount * 1).toFixed(2)} USD
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <div className="flex items-center">
+                                  <img 
+                                    className="h-5 w-5 rounded-full mr-2" 
+                                    src={tx.chainIcon} 
+                                    alt={tx.chain} 
+                                  />
+                                  <span className="text-sm text-gray-200">{tx.chain}</span>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <span className={`px-2 py-1 inline-flex text-xs leading-4 font-semibold rounded-full ${tx.status === 'success' ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}>
+                                  {tx.status === 'success' ? 'Confirmed' : 'Failed'}
+                                </span>
+                              </td>
+                              <td 
+                                className="px-4 py-3 whitespace-nowrap text-sm text-gray-300" 
+                                title={new Date(tx.timestamp).toLocaleString()}
+                              >
+                                {timeAgo}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
                                 <a 
-                                  href={`https://explorer.zetachain.com/tx/${tx.txHash}`} 
+                                  href={tx.explorerUrl} 
                                   target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="text-blue-500 hover:underline"
+                                  rel="noopener noreferrer" 
+                                  className="text-blue-400 hover:text-blue-300 flex items-center justify-end"
                                 >
                                   View
                                 </a>
-                              ) : 'N/A'}
-                            </td>
-                          </tr>
-                        ))
+                              </td>
+                            </tr>
+                          );
+                        })
                       ) : (
                         <tr>
-                          <td colSpan="6" className="px-6 py-8 text-center text-[var(--text-muted)]">
-                            No transactions found
+                          <td colSpan="7" className="px-6 py-8 text-center text-[var(--text-muted)]">
+                            {isLoadingTxs ? 'Loading transactions...' : 'No transactions found'}
                           </td>
                         </tr>
                       )}
