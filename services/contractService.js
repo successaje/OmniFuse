@@ -1,4 +1,4 @@
-import { ethers } from 'ethers';
+import { ethers, parseUnits } from 'ethers';
 import { 
   CONTRACT_ADDRESSES, 
   NETWORKS, 
@@ -116,90 +116,408 @@ class ContractService {
   }
 
   // Cross-chain supply from EVM to ZetaChain
-  async supplyToZeta(network, assetAddress, amount, signer) {
+  async supplyToZeta(network, assetAddress, amount, signer, onStatusUpdate = () => {}) {
+    const log = (message, data = {}) => {
+      console.log(`[${new Date().toISOString()}] ${message}`, data);
+      onStatusUpdate({ 
+        ...data,
+        currentStep: message,
+        isProcessing: true,
+        timestamp: Date.now()
+      });
+    };
+
     try {
-      const executor = this.getContract(network, 'OMNIVEXECUTOR', signer);
-      const executorAddress = getContractAddress(network, 'OMNIVEXECUTOR');
-      const tokenContract = this.getERC20Contract(assetAddress, network, signer);
-      
-      // Prepare revert options (match contract ABI order)
-      const revertOptions = {
-        revertAddress: executorAddress,
-        callOnRevert: true,
-        abortAddress: '0x0000000000000000000000000000000000000000',
-        revertMessage: '0x',
-        onRevertGasLimit: 500000
-      };
-
-      // Handle token approval with better error handling
-      try {
-        // First try to check allowance
-        let allowance;
-        try {
-          allowance = await tokenContract.allowance(await signer.getAddress(), executorAddress);
-          console.log('Current allowance:', allowance.toString());
-        } catch (allowanceError) {
-          console.warn('Allowance check failed, proceeding with approval:', allowanceError);
-          // If allowance check fails, we'll still try to approve
-          allowance = ethers.Zero; // Force approval
-        }
-
-        // If allowance is not enough, request approval
-        const allowanceBN = typeof allowance === 'string' ? BigInt(allowance) : allowance;
-        const amountBN = typeof amount === 'string' ? BigInt(amount) : amount;
-        
-        if (allowanceBN < amountBN) {
-          console.log('Approving token spend...');
-          const approveTx = await tokenContract.approve(executorAddress, ethers.MaxUint256);
-          console.log('Approval tx sent, waiting for confirmation...');
-          await approveTx.wait();
-          console.log('Approval confirmed');
-        }
-      } catch (approveError) {
-        console.error('Token approval failed:', approveError);
-        return {
-          success: false,
-          error: `Token approval failed: ${approveError.message}. Please try approving the token in your wallet first.`,
-          network,
-          action: 'supply',
-          approvalRejected: true
-        };
-      }
-      // Execute supply
-      console.log('Sending supply transaction...');
-      const tx = await executor.supplyToZeta(assetAddress, amount, revertOptions);
-      console.log('Transaction sent, waiting for confirmation...');
-      
-      // Add timeout for the transaction confirmation
-      const timeout = 60000; // 60 seconds timeout
-      const receipt = await Promise.race([
-        tx.wait(),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Transaction confirmation timed out')), timeout)
-        )
-      ]).catch(async (error) => {
-        console.warn('Error waiting for transaction receipt:', error);
-        // If we can't get the receipt, still return success with just the transaction hash
-        return { hash: tx.hash };
+      log('Initializing cross-chain supply...', { 
+        network, 
+        assetAddress, 
+        amount: amount.toString() 
       });
       
-      console.log('Transaction confirmed:', receipt.hash);
-      return {
-        success: true,
-        txHash: receipt.hash || tx.hash, // Fallback to tx.hash if receipt.hash is not available
-        network,
-        action: 'supply',
-        amount,
-        asset: assetAddress
+      log('Getting executor contract...');
+      const executor = this.getContract(network, 'OMNIVEXECUTOR', signer);
+      const executorAddress = getContractAddress(network, 'OMNIVEXECUTOR');
+      const userAddress = await signer.getAddress();
+      
+      // Get token contract and handle USDC decimals
+      log('Preparing token contract...', { assetAddress });
+      const tokenContract = this.getERC20Contract(assetAddress, network, signer);
+      
+      // Handle USDC 6 decimals - convert input amount to 6 decimal places for USDC
+      const usdcAddress = '0x5425890298aed601595a70AB815c96711a31Bc65'.toLowerCase();
+      const isUSDC = assetAddress.toLowerCase() === usdcAddress;
+      const decimals = isUSDC ? 6 : 18;
+
+
+      // Convert amount based on token type
+      let amountInWei;
+      if (isUSDC) {
+        // For USDC, handle 6 decimal places
+        // If amount is already a bigint or BigInt, convert it to string with 18 decimals first
+        const amountStr = (typeof amount === 'bigint' || amount instanceof BigInt || 
+                         (typeof amount === 'object' && 'toBigInt' in amount))
+          ? ethers.formatUnits(amount, 18) // Convert from wei (18) to ether
+          : amount.toString();
+        
+        // Now parse with 6 decimals for USDC
+        amountInWei = parseUnits(amountStr, 6);
+      } else {
+        // For other tokens, handle different number types and convert to wei (18 decimals)
+        const amountStr = (typeof amount === 'bigint' || amount instanceof BigInt || 
+                         (typeof amount === 'object' && 'toBigInt' in amount))
+          ? amount.toString()
+          : amount.toString();
+        amountInWei = parseUnits(amountStr, 18);
+      }
+      
+      log('Amount conversion:', {
+        inputAmount: amount,
+        isUSDC,
+        decimals,
+        amountInWei: amountInWei.toString()
+      });
+      
+      // Prepare revert options - use user's address as revert address
+      const revertOptions = {
+        revertAddress: userAddress, // Changed from executorAddress to userAddress
+        callOnRevert: false,
+        abortAddress: '0x0000000000000000000000000000000000000000',
+        revertMessage: '0x3078',
+        onRevertGasLimit: 500000
       };
+      
+      log('Revert options configured', { 
+        ...revertOptions,
+        amountInWei: amountInWei.toString()
+      });
+      
+      // Handle token approval with detailed status updates
+      log('Checking token allowance...', { 
+        userAddress, 
+        executorAddress,
+        amount: amountInWei.toString(),
+        decimals
+      });
+      
+      try {
+        // Step 1: Check current allowance
+        onStatusUpdate({ 
+          currentStep: 'Checking token allowance...',
+          isProcessing: true,
+          details: 'Verifying if approval is needed'
+        });
+        
+        const allowance = await tokenContract.allowance(userAddress, executorAddress);
+        log('Current token allowance:', { 
+          allowance: allowance.toString(),
+          amountInWei: amountInWei.toString()
+        });
+        
+        // If allowance is less than amount, request approval
+        if (allowance < amountInWei) {
+          log('Insufficient allowance. Requesting approval...');
+          onStatusUpdate({ 
+            currentStep: 'Approval needed',
+            details: 'Please approve the token transfer in your wallet',
+            isProcessing: true
+          });
+          
+          // Request approval
+          const approveTx = await tokenContract.approve(executorAddress, amountInWei);
+          
+          onStatusUpdate({ 
+            currentStep: 'Waiting for approval...',
+            details: 'Confirm the transaction in your wallet',
+            txHash: approveTx.hash,
+            isProcessing: true
+          });
+          
+          // Wait for approval confirmation
+          await approveTx.wait();
+          log('Token approval confirmed');
+          onStatusUpdate({ 
+            currentStep: 'Approval confirmed!',
+            details: 'Token transfer approved successfully',
+            isProcessing: true
+            status: receipt.status === 1 ? 'success' : 'failed'
+          });
+          
+          // Verify the new allowance
+          const newAllowance = await tokenContract.allowance(userAddress, executorAddress);
+          log('New token allowance set:', { 
+            newAllowance: newAllowance.toString(),
+            hasSufficientAllowance: newAllowance >= amount
+          });
+          
+          if (newAllowance < amount) {
+            throw new Error(`Failed to set sufficient allowance. Current: ${newAllowance}, Required: ${amount}`);
+          }
+        } else {
+          log('Sufficient allowance already set, skipping approval');
+        }
+      } catch (approveError) {
+        console.warn('Approval check failed, continuing with transaction...', approveError);
+      }
+
+      log('Preparing supply transaction...');
+      
+      // Prepare the transaction data
+      const iface = new ethers.Interface(OMNIVEXECUTOR_ABI);
+      const txData = iface.encodeFunctionData('supplyToZeta', [
+        assetAddress,
+        amountInWei,  // Use the converted amount here
+        revertOptions
+      ]);
+      
+      log('Transaction data encoded', {
+        function: 'supplyToZeta',
+        assetAddress,
+        amountInWei: amountInWei.toString(),
+        dataPreview: `${txData.substring(0, 20)}...`
+      });
+      
+      // Prepare transaction parameters
+      const txParams = {
+        to: executorAddress,
+        data: txData,
+        value: 0,
+      };
+      
+      log('Transaction parameters prepared', {
+        to: txParams.to,
+        value: txParams.value,
+        dataLength: txParams.data.length
+      });
+
+      log('Estimating gas...');
+      let gasEstimate;
+      try {
+        // First try to estimate gas with a reasonable timeout
+        gasEstimate = await signer.estimateGas({
+          ...txParams,
+          from: await signer.getAddress()
+        });
+        
+        // Add 30% buffer to the gas estimate
+        const buffer = (gasEstimate * 30n) / 100n;
+        gasEstimate += buffer;
+        
+        log('Gas estimation successful', {
+          estimatedGas: gasEstimate.toString(),
+          buffer: buffer.toString()
+        });
+      } catch (estimationError) {
+        console.error('Gas estimation failed:', estimationError);
+        log('Using fallback gas limit', { 
+          error: estimationError.message,
+          isWarning: true 
+        });
+        // Use a higher gas limit as fallback
+        gasEstimate = 1000000n;
+      }
+
+      // Prepare final transaction with gas limit
+      const finalTxParams = {
+        ...txParams,
+        from: await signer.getAddress(),
+        gasLimit: gasEstimate
+      };
+      
+      log('Sending transaction...', {
+        ...finalTxParams,
+        gasLimit: finalTxParams.gasLimit.toString(),
+        value: finalTxParams.value.toString()
+      });
+
+      try {
+        // Send the transaction
+        const tx = await signer.sendTransaction(finalTxParams);
+        
+        log('Transaction sent, waiting for confirmation...', {
+          txHash: tx.hash,
+          explorerUrl: this.getExplorerUrl(network, tx.hash),
+          gasLimit: finalTxParams.gasLimit.toString()
+        });
+        
+        // Wait for transaction receipt with retries
+        const receipt = await this.waitForTransactionReceipt(
+          signer.provider,
+          tx.hash,
+          log
+        );
+        
+        if (!receipt || receipt.status === 0) {
+          throw new Error('Transaction reverted or failed');
+        }
+        
+        log('Transaction confirmed', {
+          blockNumber: receipt.blockNumber,
+          gasUsed: receipt.gasUsed?.toString(),
+          status: 'success',
+          success: true
+        });
+        
+        // Transaction was successful
+        onStatusUpdate({ 
+          isProcessing: false,
+          currentStep: 'Transaction confirmed!',
+          receipt,
+          txHash: receipt.transactionHash,
+          success: true
+        });
+        
+        return {
+          success: true,
+          txHash: receipt.transactionHash,
+          network,
+          action: 'supply',
+          amount,
+          asset: assetAddress
+        };
+      } catch (error) {
+        console.error('Transaction execution failed:', error);
+        onStatusUpdate({
+          isProcessing: false,
+          error: error.message || 'Transaction failed',
+        });
+        
+        // Try to decode revert reason if available
+        if (error.data) {
+          try {
+            const revertReason = this.decodeRevertReason(error.data);
+            log('Transaction reverted', { revertReason });
+          } catch (e) {
+            console.warn('Could not decode revert reason:', e);
+          }
+        }
+        
+        return { 
+          success: false, 
+          error: errorMessage,
+          txHash: error.transactionHash || error.txHash
+        };
+      }
     } catch (error) {
+      // Handle different error formats
+      const errorObj = error.error?.error || error;
+      const errorMessage = errorObj.reason || errorObj.message || 'Transaction failed';
+      const txHash = errorObj.transactionHash || errorObj.txHash || error.transactionHash || error.txHash;
+      
       console.error('Supply to ZetaChain failed:', error);
-      return {
+      
+      // Log the error with all available details
+      const errorDetails = {
+        error: errorMessage,
+        isError: true,
+        isProcessing: false,
         success: false,
-        error: error.message,
-        network,
-        action: 'supply'
+        txHash,
+        code: error.code,
+        reason: error.reason,
+        data: error.data
       };
+      
+      log('Transaction failed', errorDetails);
+      
+      // Try to decode revert reason if available
+      if (error.data || errorObj.data) {
+        try {
+          const revertData = error.data || errorObj.data;
+          const revertReason = this.decodeRevertReason(revertData);
+          log('Transaction reverted', { 
+            revertReason,
+            data: revertData
+          });
+          
+          // Update the error message with the decoded reason if available
+          if (revertReason !== 'Transaction reverted') {
+            errorDetails.error = revertReason;
+          }
+        } catch (e) {
+          console.warn('Could not decode revert reason:', e);
+        }
+      }
+      
+      return { 
+        success: false, 
+        error: errorDetails.error,
+        txHash,
+        details: errorDetails
+      };
+    }
+  }
+
+  /**
+   * Wait for a transaction receipt with retry logic
+   * @param {ethers.Provider} provider - The ethers provider
+   * @param {string} txHash - The transaction hash
+   * @param {Function} log - Logging function
+   * @param {number} [maxRetries=3] - Maximum number of retry attempts
+   * @param {number} [delay=2000] - Delay between retries in ms
+   * @returns {Promise<ethers.TransactionReceipt>}
+   */
+  async waitForTransactionReceipt(provider, txHash, log, maxRetries = 3, delay = 2000) {
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        const receipt = await provider.getTransactionReceipt(txHash);
+        if (receipt) {
+          log(`Transaction receipt received (attempt ${i + 1}/${maxRetries})`, {
+            status: receipt.status,
+            blockNumber: receipt.blockNumber
+          });
+          return receipt;
+        }
+      } catch (error) {
+        log(`Error fetching receipt (attempt ${i + 1}/${maxRetries}):`, {
+          error: error.message,
+          isWarning: true
+        });
+      }
+      
+      if (i < maxRetries - 1) {
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    throw new Error('Failed to get transaction receipt after multiple attempts');
+  }
+  
+  /**
+   * Get blockchain explorer URL for a transaction
+   * @param {string} network - Network name
+   * @param {string} txHash - Transaction hash
+   * @returns {string} Explorer URL
+   */
+  getExplorerUrl(network, txHash) {
+    const explorers = {
+      'avalanche-fuji': `https://testnet.snowtrace.io/tx/${txHash}`,
+      'ethereum-sepolia': `https://sepolia.etherscan.io/tx/${txHash}`,
+      'bsc-testnet': `https://testnet.bscscan.com/tx/${txHash}`,
+      'base-sepolia': `https://sepolia.basescan.org/tx/${txHash}`
+    };
+    return explorers[network] || '#';
+  }
+  
+  /**
+   * Decode revert reason from transaction error data
+   * @param {string} data - Error data from transaction
+   * @returns {string} Decoded revert reason
+   */
+  decodeRevertReason(data) {
+    if (!data) return 'Unknown error';
+    
+    try {
+      // Handle different revert reason formats
+      if (data.startsWith('0x08c379a0')) {
+        // Standard revert(string) error
+        return ethers.AbiCoder.defaultAbiCoder().decode(
+          ['string'],
+          '0x' + data.substring(10)
+        )[0];
+      }
+      return 'Transaction reverted';
+    } catch (e) {
+      console.warn('Failed to decode revert reason:', e);
+      return 'Transaction reverted (unable to decode reason)';
     }
   }
 

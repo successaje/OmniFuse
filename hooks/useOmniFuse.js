@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAccount, useWalletClient } from 'wagmi';
 import { ethers } from 'ethers';
 import contractService from '../services/contractService';
 import { CROSS_CHAIN_CONFIG } from '../config/contracts';
+import { useTransaction } from '../contexts/TransactionContext';
 
 console.log('✅ useOmniFuse.js loaded (top of file)');
 
@@ -55,43 +56,86 @@ export function useOmniFuse() {
     }
   }, [address, isConnected]);
 
+  const { updateStatus } = useTransaction();
+  const isMounted = useRef(true);
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   // Supply assets from EVM to ZetaChain
   const supplyToZeta = useCallback(async (network, assetAddress, amount) => {
     console.log('🚀 supplyToZeta called:', { network, assetAddress, amount });
-    const chainId = CROSS_CHAIN_CONFIG.CHAIN_IDS[network];
-    const signer = await getSigner(chainId);
-    if (!signer || !isConnected) {
-      throw new Error('Wallet not connected');
-    }
+    
+    const handleStatusUpdate = (status) => {
+      if (isMounted.current) {
+        updateStatus({
+          ...status,
+          isProcessing: status.isProcessing !== false, // Default to true unless explicitly false
+          timestamp: Date.now()
+        });
+      }
+    };
 
     try {
-      setIsLoading(true);
-      setError(null);
-
-      // Convert amount to wei (assuming 18 decimals for most tokens)
-      const amountWei = ethers.parseUnits(amount.toString(), 18);
+      handleStatusUpdate({
+        isProcessing: true,
+        currentStep: 'Connecting to wallet...',
+        error: null,
+        txHash: null,
+        receipt: null
+      });
       
+      const chainId = CROSS_CHAIN_CONFIG.CHAIN_IDS[network];
+      const signer = await getSigner(chainId);
+      
+      if (!signer || !isConnected) {
+        throw new Error('Wallet not connected');
+      }
+
+      handleStatusUpdate({
+        currentStep: 'Preparing transaction...',
+        details: 'Converting amount to correct decimals...'
+      });
+      
+      // Let contractService handle the decimal conversion
       const result = await contractService.supplyToZeta(
         network,
         assetAddress,
-        amountWei,
-        signer
+        amount, // Pass the raw amount, contractService will handle conversion
+        signer,
+        handleStatusUpdate
       );
 
       if (result.success) {
-        setLastTransaction(result);
+        // Update with success status and redirect after delay
+        handleStatusUpdate({
+          currentStep: 'Transaction confirmed! Your deposit was successful.',
+          isProcessing: false,
+          success: true,
+          txHash: result.txHash,
+          redirectTo: '/dashboard', // Redirect to dashboard after success
+          timestamp: Date.now()
+        });
+        
         // Reload user position after successful supply
         await loadUserPosition();
+        
         return result;
       } else {
-        throw new Error(result.error);
+        throw new Error(result.error || 'Transaction failed');
       }
     } catch (err) {
       console.error('Supply failed:', err);
-      setError(err.message);
+      handleStatusUpdate({
+        isProcessing: false,
+        error: err.message || 'Transaction failed',
+        currentStep: 'Transaction failed'
+      });
       throw err;
-    } finally {
-      setIsLoading(false);
     }
   }, [isConnected, loadUserPosition, getSigner]);
 

@@ -4,6 +4,8 @@ import '@rainbow-me/rainbowkit/styles.css';
 import { ThemeProvider } from '../components/ThemeProvider';
 import RainbowKitThemeProvider from '../components/RainbowKitThemeProvider';
 import { useEffect, useState } from 'react';
+import { TransactionProvider } from '../contexts/TransactionContext';
+import TransactionStatus from '../components/TransactionStatus';
 
 import { getDefaultConfig, RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import { WagmiProvider } from 'wagmi';
@@ -139,29 +141,20 @@ export default function App({ Component, pageProps }) {
   }
 
   return (
-    <ThemeProvider>
-      <ErrorBoundary onError={() => setHasError(true)}>
+    <ErrorBoundary onError={() => setHasError(true)}>
+      <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
         <WagmiProvider config={config}>
           <QueryClientProvider client={queryClient}>
-            <RainbowKitProvider>
-              <RainbowKitThemeProvider>
-                <main className="bg-[var(--background)] font-inter transition-colors duration-500">
-                  {isConnecting && (
-                    <div className="fixed top-4 right-4 z-50 bg-[var(--primary-accent)] text-white px-4 py-2 rounded-lg shadow-lg">
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        <span className="text-sm">Reconnecting...</span>
-                      </div>
-                    </div>
-                  )}
-                  <Component {...pageProps} />
-                </main>
-              </RainbowKitThemeProvider>
-            </RainbowKitProvider>
+            <RainbowKitThemeProvider>
+              <TransactionProvider>
+                <Component {...pageProps} />
+                <TransactionStatus />
+              </TransactionProvider>
+            </RainbowKitThemeProvider>
           </QueryClientProvider>
         </WagmiProvider>
-      </ErrorBoundary>
-    </ThemeProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 
