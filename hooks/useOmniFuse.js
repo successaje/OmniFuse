@@ -117,6 +117,7 @@ export function useOmniFuse() {
           isProcessing: false,
           success: true,
           txHash: result.txHash,
+          network: network, // Include network for explorer URL
           redirectTo: '/dashboard', // Redirect to dashboard after success
           timestamp: Date.now()
         });

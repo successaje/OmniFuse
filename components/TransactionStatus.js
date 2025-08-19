@@ -98,10 +98,10 @@ export default function TransactionStatus() {
             {status.error?.message || status.currentStep}
           </div>
           
-          {status.txHash && (
+          {status.txHash && status.network && (
             <div className="mt-2">
               <a
-                href={`https://testnet.snowtrace.io/tx/${status.txHash}`}
+                href={contractService.getExplorerUrl(status.network, status.txHash)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm font-medium text-blue-600 hover:text-blue-500"

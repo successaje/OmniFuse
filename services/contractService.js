@@ -238,8 +238,8 @@ class ContractService {
           onStatusUpdate({ 
             currentStep: 'Approval confirmed!',
             details: 'Token transfer approved successfully',
-            isProcessing: true
-            status: receipt.status === 1 ? 'success' : 'failed'
+            isProcessing: true,
+            status: 'success'
           });
           
           // Verify the new allowance
@@ -330,12 +330,29 @@ class ContractService {
       });
 
       try {
+        // Update status before sending
+        onStatusUpdate({
+          currentStep: 'Confirm Transaction',
+          details: 'Please confirm the transaction in your wallet',
+          isProcessing: true
+        });
+        
         // Send the transaction
         const tx = await signer.sendTransaction(finalTxParams);
         
+        // Update status after sending
+        const explorerUrl = this.getExplorerUrl(network, tx.hash);
+        onStatusUpdate({
+          currentStep: 'Transaction Submitted',
+          details: 'Waiting for confirmation...',
+          txHash: tx.hash,
+          explorerUrl,
+          isProcessing: true
+        });
+        
         log('Transaction sent, waiting for confirmation...', {
           txHash: tx.hash,
-          explorerUrl: this.getExplorerUrl(network, tx.hash),
+          explorerUrl,
           gasLimit: finalTxParams.gasLimit.toString()
         });
         
@@ -346,50 +363,46 @@ class ContractService {
           log
         );
         
-        if (!receipt || receipt.status === 0) {
-          throw new Error('Transaction reverted or failed');
+        if (receipt.status === 1) {
+          // Transaction successful
+          onStatusUpdate({
+            currentStep: 'Transaction Confirmed!',
+            details: 'Your deposit was successful',
+            txHash: tx.hash,
+            explorerUrl,
+            isProcessing: false,
+            success: true,
+            redirectTo: '/manage'
+          });
+          
+          return { success: true, txHash: tx.hash, receipt };
+        } else {
+          throw new Error('Transaction reverted');
         }
-        
-        log('Transaction confirmed', {
-          blockNumber: receipt.blockNumber,
-          gasUsed: receipt.gasUsed?.toString(),
-          status: 'success',
-          success: true
-        });
-        
-        // Transaction was successful
-        onStatusUpdate({ 
-          isProcessing: false,
-          currentStep: 'Transaction confirmed!',
-          receipt,
-          txHash: receipt.transactionHash,
-          success: true
-        });
-        
-        return {
-          success: true,
-          txHash: receipt.transactionHash,
-          network,
-          action: 'supply',
-          amount,
-          asset: assetAddress
-        };
       } catch (error) {
-        console.error('Transaction execution failed:', error);
-        onStatusUpdate({
-          isProcessing: false,
-          error: error.message || 'Transaction failed',
-        });
+        console.error('Transaction error:', error);
+        
+        let errorMessage = error.message || 'Transaction failed';
         
         // Try to decode revert reason if available
         if (error.data) {
           try {
             const revertReason = this.decodeRevertReason(error.data);
-            log('Transaction reverted', { revertReason });
+            errorMessage = revertReason || errorMessage;
+            log('Transaction reverted with reason:', { revertReason });
           } catch (e) {
             console.warn('Could not decode revert reason:', e);
           }
         }
+        
+        // Update status with error and return error details
+        onStatusUpdate({
+          currentStep: 'Transaction Failed',
+          details: errorMessage,
+          error: errorMessage,
+          isProcessing: false,
+          success: false
+        });
         
         return { 
           success: false, 
