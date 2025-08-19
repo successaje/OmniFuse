@@ -2,6 +2,14 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
+<<<<<<< HEAD
   "/manage": "pages/manage.js",
   "/dashboard": "pages/dashboard.js"
+=======
+  "/discover": "pages/discover.js",
+  "/portfolio": "pages/portfolio.js",
+  "/earn": "pages/earn.js",
+  "/manage": "pages/manage.js",
+  "/": "pages/index.js"
+>>>>>>> cc32faa (added the contract context)
 }
