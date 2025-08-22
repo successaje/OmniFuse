@@ -1,6 +1,6 @@
 .env
 
-/.next
+.next
 
 node_modules
 
