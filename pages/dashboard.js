@@ -9,12 +9,16 @@ import AssetNetworkSelector from '../components/AssetNetworkSelector';
 import { contractService } from '../services/contractService';
 import { fetchAllTransactions } from '../utils/blockExplorerApi';
 import dynamic from 'next/dynamic';
+import { avaxData } from '../alchemy-sdk-script';
 
 // Dynamically import PortfolioChart with no SSR to avoid window is not defined errors
 const PortfolioChart = dynamic(
   () => import('../components/PortfolioChart'),
   { ssr: false }
 );
+
+// alchemy history api integration
+
 
 // Helper function to format user portfolio data
 const formatUserPortfolio = (userPosition, positions = []) => {
@@ -368,6 +372,16 @@ const recentTransactions = [
     amount: 5000,
     timestamp: '2024-01-12T14:15:00Z',
     status: 'completed'
+  },
+  {
+    id: 'tx-4',
+    type: 'cross-chain',
+    asset: 'ZETA',
+    fromChain: 'ZetaChain',
+    toChain: 'Ethereum',
+    amount: 5000,
+    timestamp: '2024-01-12T14:15:00Z',
+    status: 'completed'
   }
 ];
 
@@ -435,7 +449,9 @@ export default function Dashboard() {
   const [error, setError] = useState(null);
   const [lendingPositions, setLendingPositions] = useState(initialLendingPositions);
   const [isLoadingTxs, setIsLoadingTxs] = useState(false);
+  const [isLoadingTxss, setIsLoadingTxss] = useState(false);
   const [transactions, setTransactions] = useState([]);
+  const [transactionss, setTransactionss] = useState([]);
   const [portfolio, setPortfolio] = useState({
     totalValue: 0,
     totalBorrowed: 0,
@@ -444,6 +460,42 @@ export default function Dashboard() {
     activePositions: 0,
     chains: []
   });
+
+  // alchemy avax data helper function
+  const mapAlchemyTransfers = (alchemyTransfers) => {
+    return alchemyTransfers.map((tx, i) => ({
+      id: tx.hash || i,                       // unique key
+      type: tx.from.toLowerCase() === "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266".toLowerCase()
+        ? "send"
+        : "receive",                          // sent or received
+      asset: tx.asset || "AVAX",              // token symbol
+      amount: tx.value || 0,                  // token amount
+      timestamp: Date.now(),                  // Alchemy doesn't return timestamp directly, needs an extra call. For now use Date.now()
+      status: "success",                      // assume success if it's in transfers
+      explorerUrl: `https://testnet.snowtrace.io/tx/${tx.hash}`,  // block explorer link
+      chain: "Avalanche Fuji",                // your chain label
+      chainIcon: "/logos/avax-logo.png",      // your chain icon
+      icon: "/logos/avax-logo.png",           // token icon placeholder
+    }));
+  };
+
+  useEffect(() => {
+    const fetchTxs = async () => {
+      setIsLoadingTxss(true);
+      // const avaxData = await avaxAlchemy.core.getAssetTransfers({
+      //   fromAddress: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      //   category: ["external"],
+      //   order: "desc",
+      //   maxCount: 20,
+      // });
+  
+      const mapped = mapAlchemyTransfers(avaxData.transfers);
+      setTransactionss(mapped);
+      setIsLoadingTxss(false);
+    };
+  
+    fetchTxs();
+  }, []);
 
   // Prepare chart data from lending positions
   const chartData = useMemo(() => {
@@ -892,8 +944,8 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody className="bg-gray-800 divide-y divide-gray-700">
-                      {transactions && transactions.length > 0 ? (
-                        transactions.slice(0, 10).map((tx) => {
+                      {transactionss && transactionss.length > 0 ? (
+                        transactionss.slice(0, 10).map((tx) => {
                           const isSend = tx.type === 'send';
                           const amount = parseFloat(tx.amount).toFixed(4);
                           const timeAgo = formatTimeAgo(tx.timestamp);
