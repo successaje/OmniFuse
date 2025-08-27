@@ -1014,11 +1014,5 @@
   "node_modules/viem/_esm/utils/signature/recoverPublicKey.js -> @noble/curves/secp256k1": {
     "id": "node_modules/viem/_esm/utils/signature/recoverPublicKey.js -> @noble/curves/secp256k1",
     "files": []
-  },
-  "pages/dashboard.js -> ../components/PortfolioChart": {
-    "id": "pages/dashboard.js -> ../components/PortfolioChart",
-    "files": [
-      "static/chunks/components_PortfolioChart_js.js"
-    ]
   }
 }
