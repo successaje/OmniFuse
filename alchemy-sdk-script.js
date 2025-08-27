@@ -1,8 +1,4 @@
 import { Alchemy, Network } from "alchemy-sdk";
-import { useAccount } from "wagmi";
-
-
-
 
 // avax configuration
 const avaxConfig = {
@@ -10,8 +6,6 @@ const avaxConfig = {
   network: Network.AVAX_FUJI,
   
 };
-const { isConnected, address } = useAccount();
-
 // base configuration
 // const baseConfig = {
 //   apiKey: "pbkka3X51DqfysHMD4UZ3yYxD6jhBgOe",
@@ -23,7 +17,7 @@ const avaxAlchemy = new Alchemy(avaxConfig);
 
 export const avaxData = await avaxAlchemy.core.getAssetTransfers({
   fromBlock: "0x000000",
-  fromAddress: {address},
+  fromAddress: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
   category: ["external"],
   order: "desc",       
   maxCount: 20
