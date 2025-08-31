@@ -989,18 +989,6 @@
     "id": "node_modules/@wagmi/connectors/node_modules/viem/_esm/utils/signature/recoverPublicKey.js -> @noble/curves/secp256k1",
     "files": []
   },
-  "node_modules/alchemy-sdk/dist/esm/index-94289609.js -> ./alchemy-provider-0b2e9f09.js": {
-    "id": "node_modules/alchemy-sdk/dist/esm/index-94289609.js -> ./alchemy-provider-0b2e9f09.js",
-    "files": [
-      "static/chunks/node_modules_alchemy-sdk_dist_esm_alchemy-provider-0b2e9f09_js.js"
-    ]
-  },
-  "node_modules/alchemy-sdk/dist/esm/index-94289609.js -> ./alchemy-websocket-provider-2f8b1006.js": {
-    "id": "node_modules/alchemy-sdk/dist/esm/index-94289609.js -> ./alchemy-websocket-provider-2f8b1006.js",
-    "files": [
-      "static/chunks/node_modules_alchemy-sdk_dist_esm_alchemy-websocket-provider-2f8b1006_js.js"
-    ]
-  },
   "node_modules/viem/_esm/actions/public/call.js -> ../../utils/ccip.js": {
     "id": "node_modules/viem/_esm/actions/public/call.js -> ../../utils/ccip.js",
     "files": []
@@ -1014,11 +1002,5 @@
   "node_modules/viem/_esm/utils/signature/recoverPublicKey.js -> @noble/curves/secp256k1": {
     "id": "node_modules/viem/_esm/utils/signature/recoverPublicKey.js -> @noble/curves/secp256k1",
     "files": []
-  },
-  "pages/dashboard.js -> ../components/PortfolioChart": {
-    "id": "pages/dashboard.js -> ../components/PortfolioChart",
-    "files": [
-      "static/chunks/components_PortfolioChart_js.js"
-    ]
   }
 }

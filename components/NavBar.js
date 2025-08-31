@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import Image from 'next/image';
 
 export default function NavBar() {
   const router = useRouter();
@@ -12,7 +13,14 @@ export default function NavBar() {
         {/* Logo */}
         <div className="flex items-center cursor-pointer" onClick={() => router.push('/')}> 
           <span className="text-2xl font-bold gradient-text mr-2">⚡</span>
-          <span className="text-xl font-bold text-[var(--text-main)] tracking-tight">OmniFuse</span>
+          <span className="text-xl font-bold text-[var(--text-main)] tracking-tight">
+            <Image 
+              src="../public/logos/omnifuse_logo_light"   
+              alt="My photo"
+              width={300}           
+              height={200}          
+            />
+          </span>
         </div>
         {/* Desktop Nav */}
         <div className="hidden md:flex items-center space-x-2">
